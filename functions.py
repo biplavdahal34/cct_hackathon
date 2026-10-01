@@ -556,6 +556,15 @@ Return ONLY a valid JSON object — no markdown fences, no text outside the JSON
 {{PRODUCT_JSON}}
 </product_json>"""
 
+def _parse_llm_json(raw: str) -> dict:
+    """Tolerant JSON parser: strips fences and trailing commas (Gemini's quirks)."""
+    text = raw.strip()
+    if text.startswith("```"):
+        import re as _re
+        text = _re.sub(r"^```(?:json)?\s*", "", text)
+        text = _re.sub(r"\s*```$", "", text)
+    text = re.sub(r",\s*(?=[}\]])", "", text)   # remove trailing commas
+    return json.loads(text)
 
 def analyze(product):
     image_parts = []
@@ -567,12 +576,33 @@ def analyze(product):
     prompt = gemini_prompt.replace("{{PRODUCT_JSON}}", json.dumps(product, ensure_ascii=False))
 
     resp = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
-        contents=[prompt, *image_parts],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            temperature=0.2,
-            max_output_tokens=32768,
-        ),
-    )
-    return json.loads(resp.text)
+    model="gemini-3.5-flash-lite",
+    contents=[prompt, *image_parts],
+    config=types.GenerateContentConfig(
+        response_mime_type="application/json",
+        temperature=0.2,
+        max_output_tokens=32768,
+    ),)
+
+    result = None
+    for _ in range(2):
+        try:
+            parsed = _parse_llm_json(resp.text)
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict) and parsed.get("verdict"):
+            result = parsed
+            break
+        resp = client.models.generate_content(
+            model="gemini-3.5-flash-lite",
+            contents=[prompt, *image_parts],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+                max_output_tokens=32768,
+            ),
+        )
+
+    if result is None:
+        raise ValueError("Gemini returned an empty report — please try again")
+    return result

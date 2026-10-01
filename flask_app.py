@@ -405,6 +405,8 @@ def price_vm(ps: dict, pa: dict) -> dict:
 
 
 def normalize_report(report: dict) -> dict:
+    if not isinstance(report, dict):
+        raise ValueError("Model returned no usable report — try again")
     v = report.get("verdict") or {}
     rating = v.get("rating")
     if rating not in RATING_SCORE:
