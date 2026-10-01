@@ -1,10 +1,17 @@
 import os
-import re
 import time
+import hmac
 import hashlib
 import secrets
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+
+# Load .env BEFORE importing functions.py (it may read API keys at import time).
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 import requests
 from flask import (Flask, Response, render_template, request,
@@ -27,24 +34,29 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///users.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+if app.config["SECRET_KEY"] == "dev-only-change-me":
+    app.logger.warning("SECRET_KEY is not set - using the insecure development default.")
+
+
 @app.template_filter("fmt")
 def fmt_number(v):
-    """Format numbers with thousands separators: 51000 → '51,000'. Non-numbers pass through."""
+    """Format numbers with thousands separators: 51000 -> '51,000'. Non-numbers pass through."""
     try:
         return f"{int(v):,}"
-        # 51,000-style formatting for prices/stats in templates
     except (TypeError, ValueError):
         return v
 
-# ── Flask-Mail (hardcoded for testing — ROTATE this app password after the demo,
-#    it was pasted into chat. Google Account → Security → App passwords) ──────
+
+# Mail credentials come from the environment (.env), never from source code:
+#   MAIL_USERNAME=you@gmail.com
+#   MAIL_PASSWORD="your gmail app password"
 app.config.update(
     MAIL_SERVER="smtp.gmail.com",
     MAIL_PORT=587,
     MAIL_USE_TLS=True,
     MAIL_USE_SSL=False,
-    MAIL_USERNAME="ok.2346756@gmail.com",
-    MAIL_PASSWORD="mmty kmyv ymop gkwz",
+    MAIL_USERNAME=os.environ.get("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD"),
 )
 mail = Mail(app)
 
@@ -53,6 +65,7 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Please log in to analyze listings."
 login_manager.login_message_category = "error"
+
 
 # ------------------------------------------------------------------ model
 class User(UserMixin, db.Model):
@@ -68,33 +81,58 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+
 with app.app_context():
     db.create_all()
 
-OTP_TTL_SECONDS = 600        
-OTP_MAX_ATTEMPTS = 5         
-OTP_RESEND_COOLDOWN = 30     
+# ------------------------------------------------------------------ OTP helpers
+OTP_TTL_SECONDS = 600
+OTP_MAX_ATTEMPTS = 5
+OTP_RESEND_COOLDOWN = 30
+
+PENDING_KEYS = {"username", "email", "password_hash", "otp_hash",
+                "expires_at", "attempts_left", "last_sent"}
+
 
 def _generate_otp() -> str:
     """6-digit code, zero-padded."""
     return f"{secrets.randbelow(1000000):06d}"
 
+
 def _hash_otp(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()
+    """Keyed hash (HMAC with SECRET_KEY). The pending registration lives in a
+    client-readable cookie, so a plain SHA-256 of a 6-digit code could be
+    brute-forced offline by the user in about a second."""
+    key = app.config["SECRET_KEY"].encode()
+    return hmac.new(key, code.encode(), hashlib.sha256).hexdigest()
+
 
 def _mask_email(email: str) -> str:
-    """name@example.com → d***@example.com (for display on the OTP page)."""
+    """name@example.com -> n***@example.com (for display on the OTP page)."""
     try:
         name, domain = email.split("@", 1)
         return f"{name[0]}{'*' * max(len(name) - 1, 1)}@{domain}"
-    except ValueError:
+    except (ValueError, IndexError):
         return email
 
+
+def _get_pending():
+    """Return a well-formed pending registration from the session, else None."""
+    pending = session.get("pending_registration")
+    if not isinstance(pending, dict) or not PENDING_KEYS.issubset(pending):
+        session.pop("pending_registration", None)
+        return None
+    return pending
+
+
 def send_otp_email(to_email: str, code: str):
+    if not app.config.get("MAIL_USERNAME") or not app.config.get("MAIL_PASSWORD"):
+        raise RuntimeError("MAIL_USERNAME / MAIL_PASSWORD are not set in the environment.")
     msg = Message(
         subject="Your verification code — Hamrobazaar Buyer Helper",
         sender=("Hamrobazaar Buyer Helper", app.config["MAIL_USERNAME"]),
@@ -123,6 +161,7 @@ def send_otp_email(to_email: str, code: str):
     )
     mail.send(msg)
 
+
 # ------------------------------------------------------------------ forms
 class RegisterForm(FlaskForm):
     username = StringField("Username", validators=[
@@ -144,17 +183,20 @@ class RegisterForm(FlaskForm):
         if User.query.filter(User.email == field.data.strip().lower()).first():
             raise ValidationError("That email is already registered.")
 
+
 class LoginForm(FlaskForm):
     username = StringField("Username or email", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Log in")
 
+
 class OTPForm(FlaskForm):
     code = StringField("Verification code", validators=[
         DataRequired(),
-        Regexp(r"^\d{6}$", message="Enter the 6-digit code from your email."),
+        Regexp(r"^[0-9]{6}$", message="Enter the 6-digit code from your email."),
     ])
     submit = SubmitField("Verify email")
+
 
 # ------------------------------------------------------------------ auth routes
 @app.route("/register", methods=["GET", "POST"])
@@ -169,11 +211,12 @@ def register():
         try:
             send_otp_email(email, code)
         except Exception:
-            flash("Could not send the verification email — check your connection and try again.", "error")
+            app.logger.exception("Could not send OTP email")
+            flash("Could not send the verification email. Please try again in a moment.", "error")
             return render_template("register.html", form=form)
 
-        # pending registration lives in the signed session cookie.
-        # password stored as a hash — never plaintext.
+        # Pending registration lives in the signed session cookie.
+        # Password is stored as a hash - never plaintext.
         session["pending_registration"] = {
             "username": username,
             "email": email,
@@ -186,16 +229,15 @@ def register():
         return redirect(url_for("verify_otp"))
     return render_template("register.html", form=form)
 
+
 @app.route("/verify-otp", methods=["GET", "POST"])
 def verify_otp():
-    pending = session.get("pending_registration")
+    pending = _get_pending()
     if not pending:
         return redirect(url_for("register"))
 
     form = OTPForm()
     if form.validate_on_submit():
-        pending = session["pending_registration"]
-
         if time.time() > pending["expires_at"]:
             session.pop("pending_registration", None)
             flash("That code expired. Please register again.", "error")
@@ -206,7 +248,8 @@ def verify_otp():
             flash("Too many wrong attempts. Please register again.", "error")
             return redirect(url_for("register"))
 
-        if _hash_otp(form.code.data.strip()) != pending["otp_hash"]:
+        submitted = _hash_otp(form.code.data.strip())
+        if not hmac.compare_digest(submitted, pending["otp_hash"]):
             pending["attempts_left"] -= 1
             session["pending_registration"] = pending
             left = pending["attempts_left"]
@@ -218,7 +261,7 @@ def verify_otp():
             return render_template("verify_otp.html", form=form,
                                    masked_email=_mask_email(pending["email"]))
 
-        # ✓ correct code — create the real account
+        # Correct code - create the real account
         user = User(username=pending["username"], email=pending["email"])
         user.password_hash = pending["password_hash"]   # already hashed at registration
         db.session.add(user)
@@ -226,6 +269,7 @@ def verify_otp():
             db.session.commit()
         except Exception:
             db.session.rollback()
+            app.logger.exception("Could not create user after OTP verification")
             session.pop("pending_registration", None)
             flash("Could not create the account — please register again.", "error")
             return redirect(url_for("register"))
@@ -237,9 +281,10 @@ def verify_otp():
     return render_template("verify_otp.html", form=form,
                            masked_email=_mask_email(pending["email"]))
 
+
 @app.post("/resend-otp")
 def resend_otp():
-    pending = session.get("pending_registration")
+    pending = _get_pending()
     if not pending:
         return redirect(url_for("register"))
     if time.time() - pending.get("last_sent", 0) < OTP_RESEND_COOLDOWN:
@@ -250,6 +295,7 @@ def resend_otp():
     try:
         send_otp_email(pending["email"], code)
     except Exception:
+        app.logger.exception("Could not resend OTP email")
         flash("Could not send the email — try again in a moment.", "error")
         return redirect(url_for("verify_otp"))
 
@@ -263,6 +309,7 @@ def resend_otp():
     flash("A new code has been sent to your email.", "ok")
     return redirect(url_for("verify_otp"))
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -275,12 +322,16 @@ def login():
         ).first()
         if user and user.check_password(form.password.data):
             login_user(user)
-            next_page = request.args.get("next")
-            if not next_page or urlparse(next_page).netloc != "":
+            next_page = request.args.get("next", "")
+            parsed = urlparse(next_page)
+            if (not next_page or parsed.netloc or parsed.scheme
+                    or not next_page.startswith("/")
+                    or next_page.startswith("//") or "\\" in next_page):
                 next_page = url_for("home")
             return redirect(next_page)
         flash("Wrong username or password.", "error")
     return render_template("login.html", form=form)
+
 
 @app.post("/logout")
 @login_required
@@ -289,7 +340,8 @@ def logout():
     flash("You have been logged out.", "danger")
     return redirect(url_for("login"))
 
-# ------------------------------------------------------------------ analyzer helpers (unchanged)
+
+# ------------------------------------------------------------------ analyzer helpers
 RATING_SCORE = {
     "strong_buy": 90, "buy_worthy": 75, "consider_with_caution": 65,
     "caution": 40, "avoid": 10,
@@ -298,6 +350,8 @@ RATING_COLOR = {
     "strong_buy": "green", "buy_worthy": "green", "consider_with_caution": "yellow",
     "caution": "yellow", "avoid": "red",
 }
+
+
 def normalize_listing(listing: dict, url: str) -> dict:
     listing = dict(listing)
     imgs = listing.get("images") or listing.get("product_img") or []
@@ -308,17 +362,47 @@ def normalize_listing(listing: dict, url: str) -> dict:
     return listing
 
 
+def _to_num(v):
+    """Best-effort number from model-generated JSON (51000, 51000.0, '51,000', '85%').
+    Returns None when the value is not usable."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, str):
+        try:
+            f = float(v.replace(",", "").replace("%", "").strip())
+        except ValueError:
+            return None
+        return int(f) if f.is_integer() else f
+    return None
+
+
+def _fmt(v, default="—"):
+    """Thousands-separated number, or `default` if v is not numeric."""
+    n = _to_num(v)
+    if n is None:
+        return default
+    return f"{int(n):,}" if float(n).is_integer() else f"{n:,.2f}"
+
+
 def price_vm(ps: dict, pa: dict) -> dict:
     p = ps.get("asking_price") or {}
-    rng = pa.get("estimated_fair_range_npr") or [None, None]
+    rng = pa.get("estimated_fair_range_npr")
+    lo = hi = None
+    if isinstance(rng, (list, tuple)) and len(rng) == 2:
+        lo, hi = _to_num(rng[0]), _to_num(rng[1])
+    verdict = pa.get("verdict")
+    verdict = verdict if isinstance(verdict, str) else None
     tones = {"good_deal": "ok", "fair": None, "overpriced": "warn", "suspiciously_cheap": "bad"}
     return {
-        "main": f"{p.get('currency', '')} {p.get('amount', 0):,}" if p else None,
-        "tone": tones.get(pa.get("verdict")),
-        "verdict_text": (pa.get("verdict") or "unavailable").replace("_", " "),
-        "range": f"{rng[0]:,}–{rng[1]:,}" if rng[0] and rng[1] else "—",
+        "main": f"{p.get('currency', '')} {_fmt(p.get('amount'))}".strip() if p else None,
+        "tone": tones.get(verdict),
+        "verdict_text": (verdict or "unavailable").replace("_", " "),
+        "range": f"{_fmt(lo)}–{_fmt(hi)}" if lo and hi else "—",
         "confidence": pa.get("confidence", "low"),
     }
+
 
 def normalize_report(report: dict) -> dict:
     v = report.get("verdict") or {}
@@ -334,8 +418,9 @@ def normalize_report(report: dict) -> dict:
     report["verdict"] = v
     return report
 
+
 def facts_rows(ps: dict, claims: dict) -> list:
-    bh = claims.get("battery_health_percent")
+    bh = _to_num(claims.get("battery_health_percent"))
     price = ps.get("asking_price") or {}
     match = ps.get("matches_stated_condition")
     storage = str(ps.get("storage") or "").replace("GB", "").strip()
@@ -346,10 +431,10 @@ def facts_rows(ps: dict, claims: dict) -> list:
         ("Assessed condition", ps.get("assessed_condition"), None),
         ("Matches listing tag", match,
          "bad" if match == "no" else ("ok" if match == "yes" else None)),
-        ("Price", (f"{price.get('currency', '')} {price.get('amount', 0):,} · "
+        ("Price", (f"{price.get('currency', '')} {_fmt(price.get('amount'))} · "
                    f"{'negotiable' if price.get('negotiable') else 'fixed'}") if price else None, None),
         ("Battery health",
-         (f"{bh}% — below 80% threshold" if bh < 80 else f"{bh}%") if bh is not None else None,
+         (f"{bh:g}% — below 80% threshold" if bh < 80 else f"{bh:g}%") if bh is not None else None,
          "warn" if (bh is not None and bh < 80) else ("ok" if bh is not None else None)),
         ("Box included", "Yes" if claims.get("box_included") else "No", None),
         ("Face ID / True Tone",
@@ -362,57 +447,7 @@ def facts_rows(ps: dict, claims: dict) -> list:
     return [{"label": l, "value": v if v not in (None, "") else "unknown", "tone": t}
             for l, v, t in rows]
 
-def price_vm(ps: dict, pa: dict) -> dict:
-    p = ps.get("asking_price") or {}
-    rng = pa.get("estimated_fair_range_npr") or [0, 0]
-    tones = {"good_deal": "ok", "fair": None, "overpriced": "warn", "suspiciously_cheap": "bad"}
-    return {
-        "main": f"{p.get('currency', '')} {p.get('amount', 0):,}" if p else None,
-        "tone": tones.get(pa.get("verdict")),
-        "verdict_text": (pa.get("verdict") or "").replace("_", " "),
-        "range": f"{rng[0]:,}–{rng[1]:,}",
-        "confidence": pa.get("confidence", "low"),
-    }
 
-
-SEARCH_API = "https://hamrobazaar.com/api/products/search"
-
-def _search_api(product_name: str, exclude_url: str = None, limit: int = 10) -> list:
-    payload = {
-        "keyword": product_name,     # ← match the real key names from the Request tab
-        "latitude": 0,
-        "longitude": 0,
-    }
-    r = requests.post(
-        SEARCH_API,
-        json=payload,
-        headers={
-            "User-Agent": _UA["User-Agent"],
-            "Origin": "https://hamrobazaar.com",
-            "Referer": "https://hamrobazaar.com/search/product",
-        },
-        proxies=proxies,
-        timeout=30,
-    )
-    r.raise_for_status()
-
-    out = []
-    _listings_from_json(r.json(), out)          # tolerant walker: any key naming works
-
-    # dedupe, junk-filter, exclude the subject listing, cap at limit
-    seen, results = set(), []
-    for item in out:
-        u = item["url"].split("?")[0]
-        if u in seen or (exclude_url and u.rstrip("/") == exclude_url.rstrip("/")):
-            continue
-        if _JUNK_PATTERNS.search(item["title"]):
-            continue
-        seen.add(u)
-        results.append({**item, "url": u})
-        if len(results) >= limit:
-            break
-    return results
-    
 # ------------------------------------------------------------------ image proxy
 IMG_HOSTS = {
     "hamrobazaar.blr1.digitaloceanspaces.com",
@@ -424,6 +459,7 @@ _PLACEHOLDER = (b'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="60
                 b'<rect width="100%" height="100%" fill="#ecebe7"/>'
                 b'<text x="50%" y="50%" text-anchor="middle" fill="#8a8a86" '
                 b'font-family="sans-serif" font-size="20">Photo unavailable</text></svg>')
+
 
 @app.get("/img")
 def img_proxy():
@@ -440,11 +476,13 @@ def img_proxy():
     except Exception:
         return Response(_PLACEHOLDER, mimetype="image/svg+xml")
 
+
 # ------------------------------------------------------------------ main routes
 @app.get("/")
 def home():
     return render_template("bbeat.html", report=None, error=None, url="",
                            facts=[], price=None)
+
 
 @app.post("/")
 def analyze_url():
@@ -462,16 +500,16 @@ def analyze_url():
         listing = normalize_listing(listing, url)
         report = normalize_report(analyze(listing))
     except Exception as e:
+        app.logger.exception("Analysis failed for %s", url)
         return render_template("bbeat.html", report=None,
                                error=f"Analysis failed: {e}", url=url, facts=[], price=None)
 
     ps = report.get("product_summary") or {}
     claims = (report.get("description_analysis") or {}).get("extracted_claims") or {}
 
-    # ── live market pricing: search comps for the model, value with Gemini #2 ──
+    # Live market pricing: search comps for the model, value with the second model call
     model_name = ps.get("model") or ps.get("title") or ""
     asking = (ps.get("asking_price") or {}).get("amount")
-    market = None
     try:
         market = market_analysis(model_name, asking, exclude_url=url)
         report["price_analysis"] = market["price_analysis"]      # replaces the old guess
@@ -482,6 +520,7 @@ def analyze_url():
             "excluded": market.get("excluded_listings") or [],
         }
     except Exception as e:
+        app.logger.exception("Market analysis failed for %s", url)
         report["price_analysis"] = {
             "verdict": None, "estimated_fair_range_npr": None,
             "reasoning": f"Live market analysis unavailable: {e}",
@@ -490,13 +529,14 @@ def analyze_url():
         report["market_data"] = None
 
     return render_template(
-        "bbeat.html",                      # ← your actual template name
+        "bbeat.html",
         report={"listing": listing, "A": report},
         error=None,
         url=url,
         facts=facts_rows(ps, claims),
         price=price_vm(ps, report.get("price_analysis") or {}),
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
