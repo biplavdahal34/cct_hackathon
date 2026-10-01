@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hamrobazaar Buyer Helper</title>
+<title>buyer's evaluation and assiting tool</title>
 <script>
   const t = localStorage.getItem("theme") ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -231,7 +231,7 @@
 <div class="page">
 
   <div class="topbar">
-    <p class="kicker">Hamrobazaar buyer's report</p>
+    <p class="kicker">buyer's evaluation and assiting tool</p>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       {% if current_user.is_authenticated %}
         <span class="tag" style="font-size:13px;">{{ current_user.username }}</span>
@@ -310,13 +310,15 @@
         <div class="panel">
           <h3>Seller</h3>
           <div class="seller">
-            {% if listing.seller and listing.seller.profile_picture %}
-            <img src="/img?u={{ listing.seller.profile_picture | urlencode }}" alt="Seller photo">
-            {% endif %}
-            <div>
-              <div class="name">{{ listing.seller.name if listing.seller else 'Unknown seller' }}</div>
-              <div class="meta">{{ listing.seller.phone if listing.seller else '' }}</div>
-            </div>
+            <a  href="{{ listing.seller.profile_url }}">
+              {% if listing.seller and listing.seller.profile_picture %}
+              <img src="/img?u={{ listing.seller.profile_picture | urlencode }}" alt="Seller photo">
+              {% endif %}
+              <div>
+                <div class="name">{{ listing.seller.name if listing.seller else 'Unknown seller' }}</div>
+                <div class="meta">{{ listing.seller.phone if listing.seller else '' }}</div>
+              </div>
+            </a>
           </div>
           {% if listing.seller and listing.seller.profile_url %}
           <a class="tag sellerlink" href="{{ listing.seller.profile_url }}" target="_blank" rel="noopener">
@@ -327,15 +329,6 @@
       </aside>
 
       <main>
-        <section>
-          <h2>Seller's description</h2>
-          <p class="desc-label">Original</p>
-          <div class="desc">{{ A.description_analysis.original_description }}</div>
-          <p class="desc-label">English translation</p>
-          <div class="desc">{{ A.description_analysis.translated_description }}</div>
-          <p class="credibility">Read on the description: {{ A.description_analysis.claim_credibility }}</p>
-        </section>
-
         <section>
           <h2>Photo findings</h2>
           {% for p in A.image_analysis.per_image or [] %}
@@ -373,6 +366,14 @@
             {{ A.image_analysis.not_verifiable_from_images | join('; ') }}.
           </p>
         </section>
+        <section>
+          <h2>Seller's description</h2>
+          <p class="desc-label">Original</p>
+          <div class="desc">{{ A.description_analysis.original_description }}</div>
+          <p class="desc-label">English translation</p>
+          <div class="desc">{{ A.description_analysis.translated_description }}</div>
+          <p class="credibility">Read on the description: {{ A.description_analysis.claim_credibility }}</p>
+        </section>
 
         <section>
           <div class="twocol">
@@ -388,19 +389,44 @@
         </section>
 
         <section>
-          <h2>Price</h2>
+          <h2>Price vs. live market</h2>
           <p class="muted" style="font-size:16px">
             {% if price.main %}
             <strong style="color:var(--text); font-size:19px">{{ price.main }}</strong>
             {% if price.tone %}<span class="tag {{ price.tone }}" style="margin-left:10px">{{ price.verdict_text }}</span>
             {% else %}<span class="tag" style="margin-left:10px">{{ price.verdict_text }}</span>{% endif %}
-            · estimated fair range {{ price.range }} · confidence: {{ price.confidence }}
+            · fair range {{ price.range }} · confidence: {{ price.confidence }}
             {% else %}No price information available.{% endif %}
           </p>
           <p>{{ A.price_analysis.reasoning }}</p>
           <p class="muted" style="font-size:14.5px">
             Negotiation leverage: {{ A.buyer_guidance.negotiation_leverage | join('; ') }}.
           </p>
+
+          {% if A.market_data %}
+          <div class="panel" style="margin-top:8px">
+            <h3>Live Hamrobazaar comparables — {{ A.market_data.listings_used }} listings used</h3>
+            <p style="margin:0 0 10px; font-size:14.5px">
+              Min <strong>{{ A.market_data.market_stats.get('min', '—') | fmt }}</strong> ·
+              Median <strong>{{ A.market_data.market_stats.get('median', '—') | fmt }}</strong> ·
+              Max <strong>{{ A.market_data.market_stats.get('max', '—') | fmt }}</strong>
+            </p>
+            <ul class="plain" style="font-size:14.5px">
+              {% for l in A.market_data.listings %}
+              <li>
+                <a href="{{ l.url }}" target="_blank" rel="noopener">{{ l.title | truncate(70) }}</a>
+                — <strong>NPR {{ l.price | fmt }}</strong>
+              </li>
+              {% endfor %}
+            </ul>
+            {% if A.market_data.excluded %}
+            <p class="muted" style="font-size:13px; margin:10px 0 0">
+              Excluded as non-phone/accessory: 
+              {% for e in A.market_data.excluded %}{{ e.title | truncate(50) }}{% if not loop.last %}; {% endif %}{% endfor %}.
+            </p>
+            {% endif %}
+          </div>
+          {% endif %}
         </section>
 
         <section>

@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Log in</title>
+<title>Verify email — Hamrobazaar Buyer Helper</title>
 <script>
-  /* apply saved theme before first paint (no flash) */
   const t = localStorage.getItem("theme") ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.dataset.theme = t;
@@ -14,7 +13,7 @@
   :root {
     --bg: #f4f3ef; --panel: #ffffff; --text: #23211e; --muted: #6f6b64;
     --border: #e4e1da; --accent: #0f766e; --accent-ink: #ffffff;
-    --input-bg: #ffffff; --skel: #ecebe7;
+    --input-bg: #ffffff;
     --shadow: 0 1px 2px rgba(20,20,15,.05), 0 6px 18px rgba(20,20,15,.06);
     --r-lg: 16px; --r-md: 12px;
     --ok-fg:#166534; --ok-bg:#e9f5ec; --ok-bd:#86c39a;
@@ -23,7 +22,7 @@
   [data-theme="dark"] {
     --bg: #131417; --panel: #1d1f23; --text: #e9e7e3; --muted: #a3a099;
     --border: #2e3136; --accent: #2dd4bf; --accent-ink: #04201c;
-    --input-bg: #17181c; --skel: #26292e;
+    --input-bg: #17181c;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.28);
     --ok-fg:#8fd6a6; --ok-bg:#182a1d; --ok-bd:#35714b;
     --bad-fg:#f1948a; --bad-bg:#2d1917; --bad-bd:#7d3d35;
@@ -59,6 +58,7 @@
   }
   .authcard h1 { font-size: 24px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.01em; }
   .sub { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+  .sub b { color: var(--text); font-weight: 600; }
 
   .field { margin-bottom: 16px; }
   .field label {
@@ -73,6 +73,10 @@
   }
   .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
   .input::placeholder { color: var(--muted); }
+  .otp-input {
+    font-size: 26px; font-weight: 700; letter-spacing: 14px; text-align: center;
+    padding: 14px 10px 14px 24px;
+  }
   .ferr { color: var(--bad-fg); font-size: 13px; margin: 5px 0 0; }
 
   .gobtn {
@@ -91,6 +95,7 @@
     font-size: 14.5px; margin: 0 0 16px; padding: 10px 14px; border-radius: var(--r-md);
   }
   .alt { text-align: center; color: var(--muted); font-size: 14.5px; margin: 18px 0 0; }
+  .resendform { display: inline; }
   a { color: var(--accent); }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -98,14 +103,14 @@
 <body>
 
 <div class="topbar">
-  <p class="kicker">buyer's evaluation and assiting tool</p>
+  <p class="kicker">Hamrobazaar buyer helper</p>
   <button class="themebtn" id="themebtn" type="button"></button>
 </div>
 
 <div class="page">
   <div class="authcard">
-    <h1>Welcome back</h1>
-    <p class="sub">Log in to analyze Hamrobazaar listings.</p>
+    <h1>Check your email</h1>
+    <p class="sub">We sent a 6-digit code to <b>{{ masked_email }}</b>.<br>Enter it below to finish creating your account.</p>
 
     {% for cat, msg in get_flashed_messages(with_categories=true) %}
       <p class="{{ 'formerr' if cat == 'error' else 'flash-ok' }}">{{ msg }}</p>
@@ -114,24 +119,25 @@
     <form method="post" novalidate>
       {{ form.hidden_tag() }}
       <div class="field">
-        {{ form.username.label }}
-        {{ form.username(class="input", placeholder="your username or email", autofocus=true, autocomplete="username") }}
-        {% if form.username.errors %}<p class="ferr">{{ form.username.errors[0] }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.password.label }}
-        {{ form.password(class="input", placeholder="••••••••", autocomplete="current-password") }}
-        {% if form.password.errors %}<p class="ferr">{{ form.password.errors[0] }}</p>{% endif %}
+        {{ form.code.label }}
+        {{ form.code(class="input otp-input", maxlength=6, inputmode="numeric",
+                     autocomplete="one-time-code", autofocus=true, placeholder="••••••") }}
+        {% if form.code.errors %}<p class="ferr">{{ form.code.errors[0] }}</p>{% endif %}
       </div>
       {{ form.submit(class="gobtn") }}
     </form>
 
-    <p class="alt">No account yet? <a href="{{ url_for('register') }}">Create one</a></p>
+    <p class="alt">
+      Didn't get it?
+      <form class="resendform" method="post" action="{{ url_for('resend_otp') }}">
+        <button class="themebtn" type="submit" style="font-size:13.5px; padding:4px 12px;">Resend code</button>
+      </form>
+    </p>
+    <p class="alt"><a href="{{ url_for('register') }}">← Use a different email</a></p>
   </div>
 </div>
 
 <script>
-/* theme toggle */
 const themebtn = document.getElementById("themebtn");
 function paintThemeBtn(){
   themebtn.textContent = document.documentElement.dataset.theme === "dark" ? "Light mode" : "Dark mode";

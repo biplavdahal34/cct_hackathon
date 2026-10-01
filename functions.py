@@ -1,18 +1,288 @@
+import os
+import re
+import json
+
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, parse_qs, urljoin, quote
+
 from google import genai
 from google.genai import types
-import json, requests
-from bs4 import BeautifulSoup
-import re
-from urllib.parse import urlparse, parse_qs, urljoin
-import json
+import uuid
+
+
+# ── Oxylabs proxy (optional) ─────────────────────────────────────────────
+# Set these in your .env / environment instead of hardcoding:
+#   OXYLABS_USERNAME=user-xxxx-country-US   (your FULL oxylabs username)
+#   OXYLABS_PASSWORD=your-oxylabs-password
+# If unset, the scraper connects directly (no proxy).
+_OXY_USER = os.environ.get("OXYLABS_USERNAME")
+_OXY_PASS = os.environ.get("OXYLABS_PASSWORD")
+proxies = None
+if _OXY_USER and _OXY_PASS:
+    _p = f"http://{_OXY_USER}:{_OXY_PASS}@dc.oxylabs.io:8000"
+    proxies = {"http": _p, "https": _p}
+
+_UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                     "(KHTML, like Gecko) Chrome/124 Safari/537.36"}
+
+
+
+SEARCH_URL = "https://hamrobazaar.com/search/product?q={query}&Latitude=0&Longitude=0"
+
+
+_JUNK_PATTERNS = re.compile(
+    r"parts|not\s*working|battery|batteries|charger|cable|adapter|earphone"
+    r"|headphone|cover|case|tempered|glass|lcd|screen\s*only|display\s*only"
+    r"|housing|motherboard|logic\s*board|back\s*panel|skin|sticker|dummy"
+    r"|replica|fake|flex|connector|ic\s*chip",
+    re.I,
+)
+
+SEARCH_API = "https://hamrobazaar.com/api/products/search"
+
+
+def _listings_from_json(node, out):
+    """
+    Walk an arbitrary API JSON tree and pull out {title, price, url} dicts.
+    Tolerant of unknown key names — tries the common candidates.
+    """
+    if isinstance(node, dict):
+        lk = {k.lower(): k for k in node}
+        tk = lk.get("title") or lk.get("name") or lk.get("productname")
+        pk = lk.get("price") or lk.get("sellingprice") or lk.get("amount") \
+             or lk.get("sellingpricenpr") or lk.get("priceamount")
+        uk = lk.get("url") or lk.get("slug") or lk.get("seourl") \
+             or lk.get("producturl") or lk.get("id")
+
+        title = node.get(tk) if tk else None
+        price = node.get(pk) if pk else None
+        uval = node.get(uk) if uk else None
+
+        if isinstance(price, dict):                      # e.g. {"amount": 51000}
+            price = price.get("amount") or price.get("value")
+
+        if title and price is not None and uval:
+            try:
+                price = int(re.sub(r"[^\d]", "", str(price)))
+            except (ValueError, TypeError):
+                price = None
+
+            if price and 1000 <= price <= 20_000_000 and title not in ("", None):
+                uval = str(uval)
+                if uval.startswith("http"):
+                    url = uval
+                elif uval.startswith("/"):
+                    url = urljoin("https://hamrobazaar.com/", uval)
+                else:
+                    # bare slug/uuid → build the detail URL
+                    url = f"https://hamrobazaar.com/detail/{uval}"
+                out.append({"title": str(title).strip(), "price": price, "url": url})
+
+        for v in node.values():
+            _listings_from_json(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            _listings_from_json(v, out)
+
+
+def _search_api(product_name: str, exclude_url: str = None, limit: int = 10) -> list:
+    """Search via the site's own JSON API (verified working)."""
+    device_id = str(uuid.uuid4())
+    payload = {
+        "keyword": product_name,
+        "deviceId": device_id,
+        "deviceSource": "web",
+    }
+    r = requests.post(
+        SEARCH_API,
+        json=payload,
+        headers={
+            "User-Agent": _UA["User-Agent"],
+            "Origin": "https://hamrobazaar.com",
+            "Referer": "https://hamrobazaar.com/search/product",
+            "Cookie": f"deviceId={device_id}",
+        },
+        proxies=proxies,
+        timeout=30,
+    )
+    r.raise_for_status()
+
+    found = []
+    _listings_from_json(r.json(), found)
+
+    # dedupe, junk-filter, exclude the subject listing, cap at limit
+    seen, results = set(), []
+    for item in found:
+        u = item["url"].split("?")[0]
+        if u in seen:
+            continue
+        if exclude_url and u.rstrip("/") == exclude_url.rstrip("/"):
+            continue
+        if _JUNK_PATTERNS.search(item["title"]):
+            continue
+        seen.add(u)
+        results.append(item)
+        if len(results) >= limit:
+            break
+    return results
+
+def _search_html(product_name: str, exclude_url: str = None, limit: int = 10) -> list:
+    """
+    Scrape HamroBazaar search results for `product_name`.
+    Returns [{'title': str, 'price': int, 'url': str}, ...] — keyword-filtered,
+    deduped, capped at `limit`, subject listing excluded.
+    """
+    search_url = SEARCH_URL.format(query=quote(product_name))
+    r = requests.get(search_url, proxies=proxies, headers=_UA, timeout=30)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "lxml")
+    try:
+        results = _search_api(product_name, exclude_url, limit)
+        if len(results) >= 2:
+            return results
+    except Exception:
+        pass
+    return _search_html(product_name, exclude_url, limit)   
+
+    seen, results = set(), []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if "/detail/" not in href:
+            continue
+        full = urljoin("https://hamrobazaar.com/", href).split("?")[0]
+        if full in seen:
+            continue
+        if exclude_url and full.rstrip("/") == exclude_url.rstrip("/"):
+            continue
+        seen.add(full)
+
+        # title: image alt first, then headings, then raw card text
+        title = None
+        img = a.find("img", alt=True)
+        if img and img["alt"].strip() and img["alt"].strip().lower() != "profile image":
+            title = img["alt"].strip()
+        if not title:
+            h = a.find(["h1", "h2", "h3", "p"], class_=re.compile("heading|font-semibold"))
+            if h:
+                title = h.get_text(strip=True)
+        if not title:
+            title = a.get_text(" ", strip=True)[:120]
+        if not title:
+            continue
+
+        # price: strip storage tokens (512GB → would look like a price),
+        # then take the largest plausible number (handles Nepali 1,23,456 grouping)
+        text = a.get_text(" ", strip=True)
+        text = re.sub(r"\b\d+\s*(?:gb|tb)\b", " ", text, flags=re.I)
+        tokens = re.findall(r"\d{1,3}(?:,\d{2,3})+|\d{4,7}", text)
+        price = None
+        if tokens:
+            values = [int(t.replace(",", "")) for t in tokens]
+            values = [v for v in values if 1000 <= v <= 20_000_000]
+            if values:
+                price = max(values)
+
+        if price is None:
+            continue
+        if _JUNK_PATTERNS.search(title):
+            continue
+
+        results.append({"title": title, "price": price, "url": full})
+        if len(results) >= limit:
+            break
+
+    return results
+
+def search_listings(product_name: str, exclude_url: str = None, limit: int = 10) -> list:
+    """API first (clean structured data), HTML scrape as fallback."""
+    try:
+        results = _search_api(product_name, exclude_url=exclude_url, limit=limit)
+        if len(results) >= 2:
+            return results
+    except Exception:
+        pass
+    return _search_html(product_name, exclude_url=exclude_url, limit=limit)
+
+
+market_prompt = """You are a second-hand smartphone price analyst for the Nepali market (HamroBazaar).
+You receive: the phone model being valued, the seller's asking price (NPR), and a list of
+comparable listings scraped live from HamroBazaar search results today (some junk may remain).
+
+TASK
+1. EXCLUDE listings that are not a complete, working phone of the model family: spare
+   batteries, chargers, cables, cases, tempered/back glass replacements, LCD or screen-only,
+   housings, motherboards/logic boards, "for parts" / "not working" devices, accessories,
+   and clearly different models. List each exclusion in excluded_listings with a short reason.
+2. From the remaining usable listings compute market_stats: min, max, median, average (NPR).
+3. Establish a fair price range for the model. Listings vary in storage and condition —
+   reason about which are closest to the subject and weight them accordingly.
+4. Compare the asking price to your fair range and give a verdict.
+
+VERDICT (exactly one):
+- "good_deal" — asking price is below the fair range
+- "fair" — asking price is within the fair range
+- "overpriced" — asking price is above the fair range
+- "suspiciously_cheap" — far below it (possible scam, stolen, or hidden fault)
+
+OUTPUT: ONLY a JSON object exactly in this shape, with REAL numbers from the data (never 0 placeholders):
+{
+  "listings_found": 0,
+  "listings_used": 0,
+  "excluded_listings": [{"title": "...", "reason": "..."}],
+  "market_stats": {"min": 0, "max": 0, "median": 0, "average": 0},
+  "price_analysis": {
+    "verdict": "good_deal | fair | overpriced | suspiciously_cheap",
+    "estimated_fair_range_npr": [0, 0],
+    "reasoning": "3-6 sentences referencing the actual comparable listings",
+    "confidence": "low | medium | high"
+  }
+}
+If fewer than 3 usable listings remain after exclusions, set confidence "low" and widen
+the fair range cautiously, saying so in the reasoning.
+
+<product_name>
+{{PRODUCT_NAME}}
+</product_name>
+
+<asking_price>
+{{ASKING_PRICE}} NPR
+</asking_price>
+
+<listings>
+{{LISTINGS_JSON}}
+</listings>"""
+
+
+def market_analysis(product_name: str, asking_price, exclude_url: str = None) -> dict:
+    """Search + scrape comparables, then value the phone with a text-only Gemini call."""
+    if not product_name:
+        raise ValueError("No product name available to search for.")
+
+    listings = search_listings(product_name, exclude_url=exclude_url, limit=10)
+    if len(listings) < 2:
+        raise ValueError("Not enough comparable listings found on HamroBazaar.")
+
+    prompt = (market_prompt
+              .replace("{{PRODUCT_NAME}}", product_name)
+              .replace("{{ASKING_PRICE}}", str(asking_price if asking_price is not None else "unknown"))
+              .replace("{{LISTINGS_JSON}}", json.dumps(listings, ensure_ascii=False)))
+
+    resp = client.models.generate_content(
+        model="gemini-3.5-flash-lite",
+        contents=[prompt],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+            max_output_tokens=8192,
+        ),
+    )
+    result = json.loads(resp.text)
+    result["listings"] = listings          # pass the raw comps through for display
+    return result
 
 
 def scrape_url(url):
-
-     proxies = {
-        "http":"http://user-biplove_KIjId-country-US:Tansquared_123@dc.oxylabs.io:8000",
-        "https" : "http://user-biplove_KIjId-country-US:Tansquared_123@dc.oxylabs.io:8000"
-    }
 
     base_url = f"{url}"
     r = requests.get(base_url, proxies=proxies, headers=_UA, timeout=30)
@@ -189,7 +459,6 @@ Analyze each photo one at a time. For each, list visible defects with location, 
 STEP 3 — CROSS-CHECK AND ASSESS
 - Compare description claims against what the images show. Note contradictions explicitly (e.g., "like new" but visible scratches).
 - Apply known iPhone heuristics: battery health below 80% is under Apple's service threshold and means a battery replacement is likely soon; missing box/charger reduces value; "no exchange" and in-person meetups are normal on Hamrobazaar, not scams by themselves.
-- Assess price reasonableness for the Nepali second-hand market given model, storage, condition, battery health, and accessories. Your market data may be outdated — state it as an estimate with low-to-medium confidence and reason from condition and depreciation, not exact current listings.
 
 HARD RULES
 - Never invent defects you cannot see, and never invent data missing from the JSON. If an input field is absent or null, output null or "unknown" for the corresponding field.
@@ -263,12 +532,7 @@ Return ONLY a valid JSON object — no markdown fences, no text outside the JSON
     "not_verifiable_from_images": ["string"]
   },
   "red_flags": ["string"],
-  "green_flags": ["string"],
-  "price_analysis": {
-    "verdict": "good_deal | fair | overpriced | suspiciously_cheap",
-    "estimated_fair_range_npr": [0, 0],
-    "reasoning": "string",
-    "confidence": "low | medium | high"
+  "green_flags": ["string"] 
   },
   "buyer_guidance": {
     "questions_to_ask_seller": ["string"],
