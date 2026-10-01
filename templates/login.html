@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in — Hamrobazaar Buyer Helper</title>
+<script>
+  /* apply saved theme before first paint (no flash) */
+  const t = localStorage.getItem("theme") ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.dataset.theme = t;
+</script>
+<style>
+  :root {
+    --bg: #f4f3ef; --panel: #ffffff; --text: #23211e; --muted: #6f6b64;
+    --border: #e4e1da; --accent: #0f766e; --accent-ink: #ffffff;
+    --input-bg: #ffffff; --skel: #ecebe7;
+    --shadow: 0 1px 2px rgba(20,20,15,.05), 0 6px 18px rgba(20,20,15,.06);
+    --r-lg: 16px; --r-md: 12px;
+    --ok-fg:#166534; --ok-bg:#e9f5ec; --ok-bd:#86c39a;
+    --bad-fg:#a12b21; --bad-bg:#fcefec; --bad-bd:#d49285;
+  }
+  [data-theme="dark"] {
+    --bg: #131417; --panel: #1d1f23; --text: #e9e7e3; --muted: #a3a099;
+    --border: #2e3136; --accent: #2dd4bf; --accent-ink: #04201c;
+    --input-bg: #17181c; --skel: #26292e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.28);
+    --ok-fg:#8fd6a6; --ok-bg:#182a1d; --ok-bd:#35714b;
+    --bad-fg:#f1948a; --bad-bg:#2d1917; --bad-bd:#7d3d35;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16.5px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color .25s ease, color .25s ease;
+  }
+  .topbar {
+    max-width: 460px; margin: 0 auto; padding: 30px 20px 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .kicker {
+    font-size: 13px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .kicker::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .themebtn {
+    font: inherit; font-size: 13.5px; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; cursor: pointer;
+    transition: border-color .15s ease, color .15s ease; box-shadow: var(--shadow);
+  }
+  .themebtn:hover { border-color: var(--accent); color: var(--text); }
+
+  .page { max-width: 460px; margin: 0 auto; padding: 0 20px 60px; }
+  .authcard {
+    border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 30px 30px 24px; margin-top: 22px;
+    background: var(--panel); box-shadow: var(--shadow);
+  }
+  .authcard h1 { font-size: 24px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block; font-size: 12.5px; font-weight: 650; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;
+  }
+  .input {
+    width: 100%; font: inherit; font-size: 15px; color: var(--text);
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--r-md);
+    padding: 12px 14px; outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .input::placeholder { color: var(--muted); }
+  .ferr { color: var(--bad-fg); font-size: 13px; margin: 5px 0 0; }
+
+  .gobtn {
+    width: 100%; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer;
+    color: var(--accent-ink); background: var(--accent); border: none; border-radius: var(--r-md);
+    padding: 12px 26px; margin-top: 6px; transition: filter .15s ease;
+  }
+  .gobtn:hover { filter: brightness(1.07); }
+
+  .formerr {
+    color: var(--bad-fg); background: var(--bad-bg); border: 1px solid var(--bad-bd);
+    font-size: 14.5px; margin: 0 0 16px; padding: 10px 14px; border-radius: var(--r-md);
+  }
+  .flash-ok {
+    color: var(--ok-fg); background: var(--ok-bg); border: 1px solid var(--ok-bd);
+    font-size: 14.5px; margin: 0 0 16px; padding: 10px 14px; border-radius: var(--r-md);
+  }
+  .alt { text-align: center; color: var(--muted); font-size: 14.5px; margin: 18px 0 0; }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <p class="kicker">Hamrobazaar buyer helper</p>
+  <button class="themebtn" id="themebtn" type="button"></button>
+</div>
+
+<div class="page">
+  <div class="authcard">
+    <h1>Welcome back</h1>
+    <p class="sub">Log in to analyze Hamrobazaar listings.</p>
+
+    {% for cat, msg in get_flashed_messages(with_categories=true) %}
+      <p class="{{ 'formerr' if cat == 'error' else 'flash-ok' }}">{{ msg }}</p>
+    {% endfor %}
+
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="field">
+        {{ form.username.label }}
+        {{ form.username(class="input", placeholder="your username or email", autofocus=true, autocomplete="username") }}
+        {% if form.username.errors %}<p class="ferr">{{ form.username.errors[0] }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.password.label }}
+        {{ form.password(class="input", placeholder="••••••••", autocomplete="current-password") }}
+        {% if form.password.errors %}<p class="ferr">{{ form.password.errors[0] }}</p>{% endif %}
+      </div>
+      {{ form.submit(class="gobtn") }}
+    </form>
+
+    <p class="alt">No account yet? <a href="{{ url_for('register') }}">Create one</a></p>
+  </div>
+</div>
+
+<script>
+/* theme toggle */
+const themebtn = document.getElementById("themebtn");
+function paintThemeBtn(){
+  themebtn.textContent = document.documentElement.dataset.theme === "dark" ? "Light mode" : "Dark mode";
+}
+themebtn.onclick = () => {
+  const n = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = n;
+  localStorage.setItem("theme", n);
+  paintThemeBtn();
+};
+paintThemeBtn();
+</script>
+</body>
+</html>

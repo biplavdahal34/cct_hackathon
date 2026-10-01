@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hamrobazaar Buyer Helper</title>
+<script>
+  const t = localStorage.getItem("theme") ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.dataset.theme = t;
+</script>
+<style>
+  :root {
+    --bg: #f4f3ef; --panel: #ffffff; --text: #23211e; --muted: #6f6b64;
+    --border: #e4e1da; --accent: #0f766e; --accent-ink: #ffffff;
+    --link: #0f766e; --skel: #ecebe7; --input-bg: #ffffff;
+    --shadow: 0 1px 2px rgba(20,20,15,.05), 0 6px 18px rgba(20,20,15,.06);
+    --r-lg: 16px; --r-md: 12px;
+    --ok-fg:#166534; --ok-bg:#e9f5ec; --ok-bd:#86c39a;
+    --warn-fg:#92400e; --warn-bg:#fdf3e0; --warn-bd:#dca54a;
+    --bad-fg:#a12b21; --bad-bg:#fcefec; --bad-bd:#d49285;
+  }
+  [data-theme="dark"] {
+    --bg: #131417; --panel: #1d1f23; --text: #e9e7e3; --muted: #a3a099;
+    --border: #2e3136; --accent: #2dd4bf; --accent-ink: #04201c;
+    --link: #5eead4; --skel: #26292e; --input-bg: #17181c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.28);
+    --ok-fg:#8fd6a6; --ok-bg:#182a1d; --ok-bd:#35714b;
+    --warn-fg:#f0c674; --warn-bg:#2b2314; --warn-bd:#7d5c20;
+    --bad-fg:#f1948a; --bad-bg:#2d1917; --bad-bd:#7d3d35;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16.5px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color .25s ease, color .25s ease;
+  }
+  .page { max-width: 1280px; margin: 0 auto; padding: 30px 32px 80px; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .kicker {
+    font-size: 13px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;
+  }
+  .kicker::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .themebtn {
+    font: inherit; font-size: 13.5px; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; cursor: pointer;
+    transition: border-color .15s ease, color .15s ease; box-shadow: var(--shadow);
+  }
+  .themebtn:hover { border-color: var(--accent); color: var(--text); }
+  a.themebtn { display: inline-block; text-decoration: none; }
+  .registerbtn { color: var(--accent-ink) !important; background: var(--accent); border-color: var(--accent); }
+  .registerbtn:hover { color: var(--accent-ink) !important; }
+
+  .urlbar {
+    display: flex; gap: 10px; margin: 20px 0 4px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px; box-shadow: var(--shadow);
+  }
+  .urlbar input {
+    flex: 1; font: inherit; font-size: 15px; color: var(--text);
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--r-md);
+    padding: 12px 16px; outline: none; transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .urlbar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .urlbar input::placeholder { color: var(--muted); }
+  .gobtn {
+    font: inherit; font-size: 15px; font-weight: 650; cursor: pointer;
+    color: var(--accent-ink); background: var(--accent); border: none; border-radius: var(--r-md);
+    padding: 12px 26px; display: inline-flex; align-items: center; gap: 9px;
+    transition: filter .15s ease, opacity .15s ease;
+  }
+  .gobtn:hover:disabled { filter: none; }
+  .gobtn:hover:not(:disabled) { filter: brightness(1.07); }
+  .gobtn:disabled { opacity: .6; cursor: default; }
+  .spin {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+    border-top-color: var(--accent-ink); animation: rot .7s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .formerr {
+    color: var(--bad-fg); background: var(--bad-bg); border: 1px solid var(--bad-bd);
+    font-size: 14.5px; margin: 10px 0 0; padding: 10px 14px; border-radius: var(--r-md);
+  }
+  .statusline { font-size: 14px; color: var(--muted); margin: 12px 4px 0; min-height: 24px; }
+
+  .hero {
+    border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 24px 28px; margin: 26px 0 24px; background: var(--panel); box-shadow: var(--shadow);
+  }
+  .hero.tint-yellow { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn-bd) 55%, var(--border)); }
+  .hero.tint-green { background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok-bd) 55%, var(--border)); }
+  .hero.tint-red { background: var(--bad-bg); border-color: color-mix(in srgb, var(--bad-bd) 55%, var(--border)); }
+  .hero h1 { font-size: 27px; font-weight: 700; margin: 0 0 12px; letter-spacing: -.01em; }
+  .verdictline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0; }
+  .badge {
+    display: inline-block; font-size: 13.5px; font-weight: 650; padding: 5px 13px;
+    border: 1px solid; border-radius: 999px; background: var(--panel);
+  }
+  .badge.green { color: var(--ok-fg); border-color: var(--ok-bd); }
+  .badge.yellow { color: var(--warn-fg); border-color: var(--warn-bd); }
+  .badge.red { color: var(--bad-fg); border-color: var(--bad-bd); }
+  .score { font-size: 15px; color: var(--muted); font-weight: 550; }
+  .scorebar {
+    width: 130px; height: 6px; border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--muted) 25%, transparent);
+  }
+  .scorebar span {
+    display: block; height: 100%; width: var(--w, 0%); border-radius: 999px;
+    background: var(--accent);
+    animation: grow 1.1s cubic-bezier(.3,.7,.3,1) .2s both;
+  }
+  @keyframes grow { from { width: 0; } }
+  .scorebar span.ok { background: var(--ok-bd); }
+  .scorebar span.warn { background: var(--warn-bd); }
+  .scorebar span.bad { background: var(--bad-bd); }
+  .oneliner { color: var(--muted); margin: 14px 0 0; max-width: 70ch; font-size: 16.5px; }
+
+  .layout { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 26px; align-items: start; }
+  .sidebar { position: sticky; top: 18px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .sidebar { position: static; } }
+
+  .panel {
+    border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px;
+    margin-bottom: 16px; background: var(--panel); box-shadow: var(--shadow);
+  }
+  .panel h3, section h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .panel h3::before, section h2::before {
+    content: ""; width: 16px; height: 3px; border-radius: 2px; background: var(--accent); flex: none;
+  }
+  section h2 { font-size: 13px; margin: 34px 0 14px; }
+  main > section:first-child h2 { margin-top: 0; }
+
+  .photoresult {
+    display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 20px;
+    padding: 18px 0; border-bottom: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  }
+  .photoresult:first-child { padding-top: 4px; }
+  .photoresult:last-child { border-bottom: none; padding-bottom: 6px; }
+  @media (max-width: 760px) { .photoresult { grid-template-columns: 1fr; } }
+  figure.photo {
+    margin: 0; border: 1px solid var(--border); border-radius: var(--r-md);
+    overflow: hidden; background: var(--panel); box-shadow: var(--shadow);
+  }
+  figure.photo img { display: block; width: 100%; aspect-ratio: 4/3; object-fit: cover; background: var(--skel); }
+  figure.photo .slot {
+    display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;
+    color: var(--muted); font-size: 13px; background: var(--skel);
+  }
+  .photoresult .ref {
+    font-size: 12.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--accent); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .photoresult .summary { font-size: 14.5px; color: var(--muted); margin: 0 0 12px; }
+
+  .seller { display: flex; gap: 12px; align-items: center; }
+  .seller img {
+    width: 52px; height: 52px; border-radius: var(--r-md); object-fit: cover;
+    background: var(--skel); border: 1px solid var(--border);
+  }
+  .seller .name { font-weight: 650; font-size: 15.5px; }
+  .seller .meta { font-size: 13.5px; color: var(--muted); }
+  .sellerlink {
+    display: inline-block; margin-top: 12px; text-decoration: none; font-size: 12.5px;
+  }
+  .sellerlink:hover { border-color: var(--accent); color: var(--accent); }
+
+  table.facts { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  table.facts td { padding: 7px 0; vertical-align: top; border-bottom: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); }
+  table.facts tr:last-child td { border-bottom: none; }
+  table.facts td:first-child { color: var(--muted); width: 46%; padding-right: 12px; }
+  table.facts td:last-child { font-weight: 550; }
+
+  .tag {
+    display: inline-block; font-size: 12px; padding: 2px 10px; font-weight: 550;
+    border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
+    white-space: nowrap; background: var(--panel);
+  }
+  .tag.ok { color: var(--ok-fg); border-color: var(--ok-bd); background: var(--ok-bg); }
+  .tag.warn { color: var(--warn-fg); border-color: var(--warn-bd); background: var(--warn-bg); }
+  .tag.bad { color: var(--bad-fg); border-color: var(--bad-bd); background: var(--bad-bg); }
+
+  section p { margin: 0 0 12px; }
+  ul.plain { margin: 0; padding-left: 20px; }
+  ul.plain li { margin: 7px 0; }
+  .desc {
+    white-space: pre-wrap; font-size: 14.5px; background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: var(--r-md); padding: 13px 16px; margin: 0 0 10px;
+  }
+  .desc-label { font-size: 12px; color: var(--muted); margin: 0 0 5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 650; }
+  .credibility {
+    font-size: 15px; color: var(--muted); border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 14px; margin-top: 14px;
+  }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .twocol { grid-template-columns: 1fr; } }
+  .finding { padding: 10px 0; border-bottom: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); font-size: 15px; }
+  .finding:last-child { border-bottom: none; padding-bottom: 2px; }
+  .finding .ref { color: var(--muted); font-size: 12.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
+  .muted { color: var(--muted); }
+
+  .flagcard { border-radius: var(--r-lg); padding: 16px 20px; border: 1px solid var(--border); background: var(--panel); }
+  .flagcard.red { background: var(--bad-bg); border-color: color-mix(in srgb, var(--bad-bd) 50%, var(--border)); }
+  .flagcard.green { background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok-bd) 50%, var(--border)); }
+  .flagcard h2 { color: var(--bad-fg); }
+  .flagcard.green h2 { color: var(--ok-fg); }
+  .flagcard h2::before { background: currentColor; }
+  .flagcard ul.plain li::marker { color: var(--bad-fg); }
+  .flagcard.green ul.plain li::marker { color: var(--ok-fg); }
+
+  .skel { background: var(--skel); border-radius: var(--r-md); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  .reveal { animation: rise .4s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  a { color: var(--link); }
+  footer { border-top: 1px solid var(--border); margin-top: 48px; padding-top: 16px; font-size: 13.5px; color: var(--muted); }
+  .emptybox { text-align: center; padding: 70px 20px; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="topbar">
+    <p class="kicker">Hamrobazaar buyer's report</p>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      {% if current_user.is_authenticated %}
+        <span class="tag" style="font-size:13px;">{{ current_user.username }}</span>
+        <form method="post" action="{{ url_for('logout') }}" style="margin:0;">
+          <button class="themebtn" type="submit">Log out</button>
+        </form>
+      {% else %}
+        <a class="themebtn" href="{{ url_for('login') }}">Log in</a>
+        <a class="themebtn registerbtn" href="{{ url_for('register') }}">Register</a>
+      {% endif %}
+      <button class="themebtn" id="themebtn" type="button"></button>
+    </div>
+  </div>
+
+  <!-- plain HTML form → Flask POST. JS only shows the loading overlay while the server works. -->
+  <form class="urlbar" method="post" action="/" onsubmit="showLoading()">
+    <input name="url" type="url" required placeholder="Paste a hamrobazaar.com listing URL…" value="{{ url }}">
+    <button class="gobtn" id="gobtn" type="submit">Analyze<span class="spin" id="btnspin" hidden></span></button>
+  </form>
+
+  {% if error %}
+  <p class="formerr" id="errbox">{{ error }}</p>
+  {% else %}
+  <p class="formerr" id="errbox" hidden></p>
+  {% endif %}
+  <p class="statusline" id="status"></p>
+
+  <!-- loading skeleton: shown by showLoading() during the POST round-trip -->
+  <div id="loading" hidden>
+    <div class="skel" style="height:130px; margin-bottom:24px"></div>
+    <div class="layout">
+      <div>
+        <div class="skel" style="height:300px; margin-bottom:16px"></div>
+        <div class="skel" style="height:90px"></div>
+      </div>
+      <div>
+        <div class="skel" style="height:20px; width:40%; margin-bottom:16px"></div>
+        <div class="skel" style="height:110px; margin-bottom:30px"></div>
+        <div class="skel" style="height:20px; width:30%; margin-bottom:16px"></div>
+        <div class="skel" style="height:180px; margin-bottom:30px"></div>
+        <div class="skel" style="height:20px; width:24%; margin-bottom:16px"></div>
+        <div class="skel" style="height:100px"></div>
+      </div>
+    </div>
+  </div>
+
+  {% if report %}
+  {% set listing = report.listing %}
+  {% set A = report.A %}
+  {% set v = A.verdict %}
+
+  <div id="result" class="reveal">
+    <div class="hero tint-{{ v.badge_color }}">
+      <h1>{{ A.product_summary.title }}</h1>
+      <div class="verdictline">
+        <span class="badge {{ v.badge_color }}">{{ v.rating.replace('_', ' ') }}</span>
+        <span class="score">{{ v.score_0_100 }} / 100</span>
+        <span class="scorebar"><span class="{{ v.badge_color }}" style="--w: {{ v.score_0_100 }}%"></span></span>
+      </div>
+      <p class="oneliner">{{ v.one_liner }}</p>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="panel">
+          <h3>Listing facts</h3>
+          <table class="facts"><tbody>
+            {% for r in facts %}
+            <tr>
+              <td>{{ r.label }}</td>
+              <td>{% if r.tone %}<span class="tag {{ r.tone }}">{{ r.value }}</span>{% else %}{{ r.value }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody></table>
+        </div>
+        <div class="panel">
+          <h3>Seller</h3>
+          <div class="seller">
+            {% if listing.seller and listing.seller.profile_picture %}
+            <img src="/img?u={{ listing.seller.profile_picture | urlencode }}" alt="Seller photo">
+            {% endif %}
+            <div>
+              <div class="name">{{ listing.seller.name if listing.seller else 'Unknown seller' }}</div>
+              <div class="meta">{{ listing.seller.phone if listing.seller else '' }}</div>
+            </div>
+          </div>
+          {% if listing.seller and listing.seller.profile_url %}
+          <a class="tag sellerlink" href="{{ listing.seller.profile_url }}" target="_blank" rel="noopener">
+            View profile on Hamrobazaar ↗
+          </a>
+          {% endif %}
+        </div>
+      </aside>
+
+      <main>
+        <section>
+          <h2>Seller's description</h2>
+          <p class="desc-label">Original</p>
+          <div class="desc">{{ A.description_analysis.original_description }}</div>
+          <p class="desc-label">English translation</p>
+          <div class="desc">{{ A.description_analysis.translated_description }}</div>
+          <p class="credibility">Read on the description: {{ A.description_analysis.claim_credibility }}</p>
+        </section>
+
+        <section>
+          <h2>Photo findings</h2>
+          {% for p in A.image_analysis.per_image or [] %}
+          {% set src = listing.images[p.image_index - 1] if listing.images and listing.images | length >= p.image_index else none %}
+          <div class="photoresult">
+            <figure class="photo">
+              {% if src %}
+              <img src="/img?u={{ src | urlencode }}" alt="Product photo {{ p.image_index }}">
+              {% else %}
+              <div class="slot">Photo not available</div>
+              {% endif %}
+            </figure>
+            <div>
+              <p class="ref">Photo {{ p.image_index }}
+                <span class="tag {{ 'ok' if p.photo_authenticity == 'real_device_photo' else 'warn' }}">
+                  {{ p.photo_authenticity.replace('_', ' ') }}</span>
+              </p>
+              <p class="summary">{{ p.summary }}</p>
+              {% for f in p.findings or [] %}
+              <div class="finding">
+                <span class="ref">{{ f.location }}</span><br>
+                {{ f.notes }}
+                <span class="tag {{ 'ok' if f.severity == 'none' else ('warn' if f.severity in ['moderate', 'severe'] else '') }}">{{ f.severity }}</span>
+                <span class="tag">confidence: {{ f.confidence }}</span>
+              </div>
+              {% endfor %}
+              {% if not p.findings %}
+              <p class="muted" style="font-size:14.5px; margin:8px 0 0">No defects identified in this photo.</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+          <p class="muted" style="font-size:14.5px; margin-top:14px">
+            <strong>Not assessable from photos:</strong>
+            {{ A.image_analysis.not_verifiable_from_images | join('; ') }}.
+          </p>
+        </section>
+
+        <section>
+          <div class="twocol">
+            <div class="flagcard red">
+              <h2>Red flags</h2>
+              <ul class="plain">{% for f in A.red_flags or [] %}<li>{{ f }}</li>{% endfor %}</ul>
+            </div>
+            <div class="flagcard green">
+              <h2>Green flags</h2>
+              <ul class="plain">{% for f in A.green_flags or [] %}<li>{{ f }}</li>{% endfor %}</ul>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Price</h2>
+          <p class="muted" style="font-size:16px">
+            {% if price.main %}
+            <strong style="color:var(--text); font-size:19px">{{ price.main }}</strong>
+            {% if price.tone %}<span class="tag {{ price.tone }}" style="margin-left:10px">{{ price.verdict_text }}</span>
+            {% else %}<span class="tag" style="margin-left:10px">{{ price.verdict_text }}</span>{% endif %}
+            · estimated fair range {{ price.range }} · confidence: {{ price.confidence }}
+            {% else %}No price information available.{% endif %}
+          </p>
+          <p>{{ A.price_analysis.reasoning }}</p>
+          <p class="muted" style="font-size:14.5px">
+            Negotiation leverage: {{ A.buyer_guidance.negotiation_leverage | join('; ') }}.
+          </p>
+        </section>
+
+        <section>
+          <h2>Before you buy</h2>
+          <div class="twocol">
+            <div>
+              <p class="desc-label" style="color: rgb(3, 200, 0);">Questions to ask the seller : </p>
+              <ul class="plain">{% for q in A.buyer_guidance.questions_to_ask_seller or [] %}<li>{{ q }}</li>{% endfor %}</ul>
+              <p class="desc-label" style="margin-top:14px">In-person checks</p>
+              <ul class="plain">{% for c in A.buyer_guidance.in_person_checks or [] %}<li>{{ c }}</li>{% endfor %}</ul>
+            </div>
+            <div>
+              <p class="desc-label" style="color: rgb(255, 69, 69);">Walk away if :</p>
+              <ul class="plain">{% for w in A.buyer_guidance.walk_away_if or [] %}<li>{{ w }}</li>{% endfor %}</ul>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Verdict</h2>
+          <p>{{ v.reasoning }}</p>
+          <p><strong>Ideal for:</strong> {{ v.ideal_for }}</p>
+          <p><strong>Not ideal for:</strong> {{ v.not_ideal_for }}</p>
+        </section>
+
+        <section>
+          <h2>Limitations of this analysis</h2>
+          <ul class="plain" style="color:var(--muted); font-size:14.5px">
+            {% for l in A.limitations or [] %}<li>{{ l }}</li>{% endfor %}
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      Condition and defect findings are generated from listing photos and text by an AI analyst
+      and are not a substitute for physical inspection.
+      {% if listing.url %}Original listing: <a href="{{ listing.url }}" rel="noopener">hamrobazaar.com</a>.{% endif %}
+    </footer>
+  </div>
+
+  {% elif not error %}
+  <div class="emptybox" id="emptybox">
+    <p style="margin:0 0 6px; font-weight:650; color:var(--text); font-size:18px">Paste a listing URL above</p>
+    <p style="margin:0">The page will scrape the ad, inspect the photos, and build a buyer's report.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+/* theme toggle */
+const themebtn = document.getElementById("themebtn");
+function paintThemeBtn(){ themebtn.textContent = document.documentElement.dataset.theme === "dark" ? "Light mode" : "Dark mode"; }
+themebtn.onclick = () => {
+  const n = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = n;
+  localStorage.setItem("theme", n);
+  paintThemeBtn();
+};
+paintThemeBtn();
+
+/* loading overlay shown while Flask scrapes + analyzes */
+const PHASES = ["Fetching listing from Hamrobazaar…", "Downloading product photos…",
+  "Inspecting photos for defects…", "Cross-checking claims against images…", "Scoring and writing verdict…"];
+function showLoading(){
+  document.getElementById("loading").hidden = false;
+  ["result", "emptybox", "errbox"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.hidden = true;
+  });
+  document.getElementById("btnspin").hidden = false;
+  document.getElementById("gobtn").disabled = true;
+  const s = document.getElementById("status"); let i = 0;
+  s.textContent = PHASES[0];
+  setInterval(() => { i = (i + 1) % PHASES.length; s.textContent = PHASES[i]; }, 2600);
+}
+</script>
+</body>
+</html>
