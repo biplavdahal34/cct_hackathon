@@ -94,7 +94,7 @@ Local:
 
 ```bash
 python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirement.txt
 
 export GOOGLE_API_KEY=...        # Gemini API key
 export SECRET_KEY=...            # any long random string
