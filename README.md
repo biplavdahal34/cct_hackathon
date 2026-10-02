@@ -1,4 +1,4 @@
-# cct_hackathon
+# BEAT (Buyer's Evaluation and Assessment Tool)
 
 Hamrobazaar Buyer Helper
 
