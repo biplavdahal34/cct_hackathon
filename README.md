@@ -1,7 +1,5 @@
 # BEAT (Buyer's Evaluation and Assessment Tool)
 
-Hamrobazaar Buyer Helper
-
 You find an iPhone 14 on Hamrobazaar tagged "Like new" for NPR 51,000. The seller swears it's clean. The photos show a battery health screen reading 78%.
 
 This tool exists because that gap — between what a listing claims and what's actually true — is where used-phone buyers in Nepal get burned. Paste a listing URL and get a buyer's report: what the photos really show, what the seller's claims are worth, and what the phone should actually cost, based on what similar units are selling for right now on the same site.
