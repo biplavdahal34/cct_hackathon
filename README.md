@@ -1,6 +1,4 @@
-# cct_hackathon
-
-Hamrobazaar Buyer Helper
+# BEAT (Buyer's Evaluation and Assessment Tool)
 
 You find an iPhone 14 on Hamrobazaar tagged "Like new" for NPR 51,000. The seller swears it's clean. The photos show a battery health screen reading 78%.
 
@@ -96,7 +94,7 @@ Local:
 
 ```bash
 python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirement.txt
 
 export GOOGLE_API_KEY=...        # Gemini API key
 export SECRET_KEY=...            # any long random string
@@ -146,20 +144,5 @@ Said plainly, because a tool that judges honesty should be honest itself:
      Built for a demo: SQLite, two workers, no rate limiting. It handles a demo audience, not production traffic.
      Hamrobazaar could change their markup or API tomorrow. The scraper has fallbacks, but this is the nature of scraping.
 
-Team
-<!-- your names here -->
-
-Built at [hackathon name], [date].
-text
- 
-  
- 
- 
-
-Before you present, fill in three things:
-
-1. **The screenshot** — one full report page (dark mode, a listing with populated comps panel) placed right under the intro. This is the single highest-impact addition; judges skim.
-2. **Team section** — names, and the hackathon name/date.
-3. **The `.env.example`** referenced in the Docker instructions — create a small file with the four variable names and blank values so the `cp` command actually works.
 
 A few deliberate choices, so you can defend or change them: emojis are at exactly zero because you'll see dozens of READMEs with rocket emojis and this one standing clean next to them reads as more confident, not plainer. The "Known limitations" section is kept because judges consistently reward projects that state their own boundaries — it signals you actually tested the edges. And the feature list is grouped by capability rather than dumped as one flat list, but everything from the whole build is in there: scraper fallbacks, the reverse-engineered search API, OTP attempt limits, the image proxy, all of it.
