@@ -1,4 +1,3 @@
-import os
 import time
 import hmac
 import hashlib
@@ -33,9 +32,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///users.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-if app.config["SECRET_KEY"] == "dev-only-change-me":
-    app.logger.warning("SECRET_KEY is not set - using the insecure development default.")
+app.config["SECRET_KEY"] == os.environ.get("SECRET_KEY")
 
 
 @app.template_filter("fmt")
@@ -46,10 +43,6 @@ def fmt_number(v):
     except (TypeError, ValueError):
         return v
 
-
-# Mail credentials come from the environment (.env), never from source code:
-#   MAIL_USERNAME=you@gmail.com
-#   MAIL_PASSWORD="your gmail app password"
 app.config.update(
     MAIL_SERVER="smtp.gmail.com",
     MAIL_PORT=587,
