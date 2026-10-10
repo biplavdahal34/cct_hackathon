@@ -4,7 +4,7 @@ import hashlib
 import secrets
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-
+import os
 # Load .env BEFORE importing functions.py (it may read API keys at import time).
 try:
     from dotenv import load_dotenv
@@ -414,27 +414,39 @@ def normalize_report(report: dict) -> dict:
     return report
 
 
-def facts_rows(ps: dict, claims: dict) -> list:
-    bh = _to_num(claims.get("battery_health_percent"))
+def facts_rows(ps: dict, claims: dict, category: str = "phone") -> list:
+    bh = claims.get("battery_health_percent")
     price = ps.get("asking_price") or {}
     match = ps.get("matches_stated_condition")
-    storage = str(ps.get("storage") or "").replace("GB", "").strip()
+    storage_raw = str(ps.get("storage") or "").strip()
+    storage_disp = f"{storage_raw} GB" if storage_raw.isdigit() else (storage_raw or None)
+
     rows = [
         ("Model", ps.get("model"), None),
-        ("Storage", f"{storage} GB" if storage else None, None),
+        ("Storage", storage_disp, None),
+        ("RAM", ps.get("ram"), None),          # new field from the generalized prompt
         ("Listed condition", ps.get("stated_condition"), None),
         ("Assessed condition", ps.get("assessed_condition"), None),
         ("Matches listing tag", match,
          "bad" if match == "no" else ("ok" if match == "yes" else None)),
-        ("Price", (f"{price.get('currency', '')} {_fmt(price.get('amount'))} · "
+        ("Price", (f"{price.get('currency', '')} {price.get('amount', 0):,} · "
                    f"{'negotiable' if price.get('negotiable') else 'fixed'}") if price else None, None),
-        ("Battery health",
-         (f"{bh:g}% — below 80% threshold" if bh < 80 else f"{bh:g}%") if bh is not None else None,
-         "warn" if (bh is not None and bh < 80) else ("ok" if bh is not None else None)),
-        ("Box included", "Yes" if claims.get("box_included") else "No", None),
-        ("Face ID / True Tone",
-         f"{'Claimed working' if claims.get('face_id') == 'claimed_working' else 'Not mentioned'} / "
-         f"{'claimed working' if claims.get('true_tone') == 'claimed_working' else 'not mentioned'}", None),
+    ]
+
+    # battery row only for devices that actually have one, and only when claimed
+    if category in ("phone", "laptop") and bh is not None:
+        rows.append(("Battery health",
+                     f"{bh}% — below 80% threshold" if bh < 80 else f"{bh}%",
+                     "warn" if bh < 80 else "ok"))
+
+    rows.append(("Box included", "Yes" if claims.get("box_included") else "No", None))
+
+    # category-specific claims → dynamic rows (biometrics, locks, GPU, hinges, OS…)
+    for k, val in (claims.get("category_specific_claims") or {}).items():
+        if isinstance(val, str) and val.strip():
+            rows.append((k.replace("_", " ").title(), val.replace("_", " "), None))
+
+    rows += [
         ("Reason for selling", claims.get("reason_for_selling"), None),
         ("Location", ps.get("location"), None),
         ("Delivery", "Available" if ps.get("delivery_available") else "Not available", None),
@@ -524,12 +536,12 @@ def analyze_url():
         report["market_data"] = None
 
     return render_template(
-        "bbeat.html",
-        report={"listing": listing, "A": report},
-        error=None,
-        url=url,
-        facts=facts_rows(ps, claims),
-        price=price_vm(ps, report.get("price_analysis") or {}),
+    "bbeat.html",
+    report={"listing": listing, "A": report},
+    error=None,
+    url=url,
+    facts=facts_rows(ps, claims, report.get("device_category") or "phone"),
+    price=price_vm(ps, report.get("price_analysis") or {}),
     )
 
 

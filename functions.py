@@ -143,7 +143,7 @@ def _search_html(product_name: str, exclude_url: str = None, limit: int = 10) ->
             return results
     except Exception:
         pass
-    return _search_html(product_name, exclude_url, limit)   
+        return _search_html(product_name, exclude_url, limit)   
 
     seen, results = set(), []
     for a in soup.find_all("a", href=True):
@@ -338,12 +338,9 @@ def scrape_url(url):
                     delivery["available"] = True
                 break
 
-    # ── seller block: now also captures the profile URL ──────────────────
     seller = {"name": None, "profile_picture": None, "phone": None, "profile_url": None}
     for a in soup.find_all("a"):
         if a.get("aria-label") == "View seller profile":
-            # the same anchor that holds name/photo/phone IS the link to
-            # the seller's hamrobazaar profile — normalize it to absolute
             href = a.get("href") or ""
             if href:
                 seller["profile_url"] = urljoin("https://hamrobazaar.com/", href)
@@ -434,43 +431,59 @@ def scrape_url(url):
 # (the key was previously hardcoded and pasted into chats — rotate it!)
 client = genai.Client()
 
-gemini_prompt = """You are an expert second-hand marketplace listing analyst and physical device inspector, specializing in used smartphones (especially iPhones). You will receive:
+gemini_prompt = """You are an expert second-hand electronics inspector and marketplace listing analyst. You will receive:
 
 1. A JSON object describing a product listing (between <product_json> tags), scraped from the Nepali marketplace Hamrobazaar.
 2. Zero or more product photos attached in the same order as the "product_img" array.
 
 Produce a thorough, honest buyer's report as a single JSON object.
 
+STEP 0 — IDENTIFY THE DEVICE
+- Determine device_category: "phone" | "laptop" | "desktop". Infer from the title, specifications, and photos. If ambiguous, pick the best guess and note it in limitations.
+- Everything downstream must be appropriate to that category. NEVER evaluate features the category cannot have (e.g., do not assess Face ID on a laptop, a keyboard on a phone, or a GPU on a phone).
+
 STEP 1 — PARSE THE LISTING
 - Read every field, including the seller description.
-- Descriptions often mix English with romanized Nepali (e.g., "2ta vayera auta bechna lagya ho" = "I have two units, personally used, selling one"; "BH" = battery health; "bkup" = backup; "no ex" = no exchange). Translate the full description into natural English and extract every factual claim.
-- Extract claimed facts: battery health %, Face ID status, True Tone status (True Tone only functions on the original/genuine Apple screen — a working True Tone claim is evidence the screen likely hasn't been replaced), reset/update status, included accessories, and reason for selling.
+- Descriptions often mix English with romanized Nepali ("2ta vayera auta bechna lagya ho" = "I have two units, personally used, selling one"; "BH" = battery health; "no ex" = no exchange; "non open" = never opened/repaired). Translate the full description into natural English and extract every factual claim the seller makes.
+- Common claims (extract when mentioned, leave null otherwise): battery health % or cycle count, storage/RAM configuration, box/accessories/charger included, repair or opening history, reset/update status, warranty, reason for selling.
+- Category-specific claims (only when the category supports them AND the seller mentions them). Put each in category_specific_claims using a short snake_case key:
+  - phone: biometric unlock (Face ID / fingerprint), account-lock status (iCloud / FRP / Knox / Mi), network/SIM lock, camera function, fast charging, screen originality.
+  - laptop: keyboard and backlight, hinge, trackpad, panel type/quality, dedicated GPU, OS and license, original charger.
+  - desktop: CPU / GPU / RAM / storage specifics, PSU, OS and activation, custom build vs branded, included peripherals, warranty.
+- Mark working-state claims as "claimed_working" | "claimed_broken" | "not_mentioned". Never invent a claim the seller did not make.
 
 STEP 2 — INSPECT EACH ATTACHED IMAGE
-Analyze each photo one at a time. For each, list visible defects with location, severity, and confidence. Inspect for, at minimum:
-- Screen: cracks, deep scratches, dead/stuck pixels, discoloration, dark spots, OLED burn-in, uneven brightness; note whether a screen protector or case is fitted.
-- Body/frame: dents, dings, bent frame, paint chips, deep scratches, corner wear.
-- Back: glass cracks, scratches, camera bump damage.
-- Camera: lens chips, cracks, scratches, dust or debris inside the lens, sensor spots.
-- Details: worn buttons, scratched SIM tray, dirty/loose charging port, missing parts, signs of aftermarket or mismatched replaced parts (color mismatch, uneven gaps).
+Analyze each photo one at a time. For each, list visible defects with location, severity, and confidence.
+For ALL categories: exterior condition (scratches, dents, dings, chips, cracks, bent parts), signs of repair or replaced parts (color mismatch, uneven gaps, wrong screws), completeness vs what should be included, and photo authenticity — stock, edited, or mismatched images are a red flag.
+Then category-specific checks:
+- phone: screen (cracks, deep scratches, dead/stuck pixels, discoloration, dark spots, burn-in, protector/case fitted), frame and back glass, camera lenses (chips, cracks, dust inside), charging port (lint, wear), buttons, SIM tray, any water-damage hints.
+- laptop: screen (dead pixels, backlight bleed, hinge damage or looseness, lid alignment), keyboard (missing keys, shiny worn keys, dead-key evidence), trackpad wear, palmrest/body wear, ports, vents/fans (dust), charger included and condition.
+- desktop: judge each visible component — graphics card (fan condition, yellowing/heat discoloration, dust), case interior (dust buildup, loose cables), motherboard I/O, CPU cooler, storage drives, PSU if visible, monitor/peripherals if shown.
 - Distinguish real defects from reflections, glare, dust, and compression artifacts. When unsure, mark confidence "low" and explain what you see.
-- Judge photo authenticity: is this a real photo of the actual device, or does it look like a stock/edited/mismatched image? (Stock photos on a used listing are a red flag.)
+- Photos cannot verify internals or function: storage SMART health, thermals under load, board-level faults, actual benchmark performance, all keys/ports working. These belong in not_verifiable_from_images — do not guess.
 
 STEP 3 — CROSS-CHECK AND ASSESS
-- Compare description claims against what the images show. Note contradictions explicitly (e.g., "like new" but visible scratches).
-- Apply known iPhone heuristics: battery health below 80% is under Apple's service threshold and means a battery replacement is likely soon; missing box/charger reduces value; "no exchange" and in-person meetups are normal on Hamrobazaar, not scams by themselves.
+- Compare description claims against what the images show. Note contradictions explicitly (e.g., "like new" but visible wear).
+- Apply category-appropriate heuristics, and only those:
+  - battery health below 80% (phones and laptops) is under the service threshold — replacement likely soon; Android phones often hide battery %, so infer cautiously from age and charging claims.
+  - missing box/charger reduces value; aftermarket charger is a minor flag.
+  - any locked device (iCloud lock, Google FRP, Samsung Knox, Mi account) is effectively unusable — hard red flag.
+  - desktops/laptops: advertised specs must match visibly identifiable components (GPU model printed on the card, RAM configuration) — a mismatch is a major red flag.
+  - heavy dust in vents/fans on any category suggests poor maintenance and possible thermal problems.
+  - "no exchange" and in-person meetups are normal on Hamrobazaar, not scams by themselves.
 
 HARD RULES
-- Never invent defects you cannot see, and never invent data missing from the JSON. If an input field is absent or null, output null or "unknown" for the corresponding field.
+- Never invent defects you cannot see, and never invent data missing from the JSON. If an input field is absent or null, output null or "unknown".
 - Every finding needs confidence: "high" (clearly visible), "medium" (probably visible), "low" (possibly an artifact/unclear).
-- Anything not assessable from photos (battery in settings, IMEI status, Face ID function, mic/speaker tests) belongs in not_verifiable_from_images — do not guess.
+- Anything not assessable from photos belongs in not_verifiable_from_images — do not guess.
 - Do not reproduce personal contact info (phone numbers, full addresses) in the output; refer to "seller contact" generically.
 - Be blunt and buyer-protective. Under-rating a risky listing is better than over-rating a bad one.
+- If the device category or model is unusual, say so in limitations rather than forcing a confident answer.
 
 VERDICT SCALE (use exactly one value)
 - "strong_buy" — clean device, credible claims, fair/good price, no meaningful red flags
 - "buy_worthy" — good overall; minor cosmetic wear or small uncertainties; a reasonable buyer should proceed
-- "consider_with_caution" — acceptable but with notable compromises (e.g., battery health below 80%, missing accessories, unverified claims); in-person inspection strongly advised
+- "consider_with_caution" — acceptable but with notable compromises (e.g., battery below 80%, missing accessories, unverified claims); in-person inspection strongly advised
 - "caution" — multiple red flags or serious unverifiable claims; proceed only with full verification and significant negotiation
 - "avoid" — confirmed defects, misleading listing, scam indicators, or grossly unfair price
 
@@ -478,10 +491,12 @@ OUTPUT
 Return ONLY a valid JSON object — no markdown fences, no text outside the JSON — matching exactly this structure:
 
 {
+  "device_category": "phone | laptop | desktop",
   "product_summary": {
     "title": "cleaned, de-duplicated title",
-    "model": "best-guess model, e.g. iPhone 14",
+    "model": "best-guess model and config, e.g. iPhone 14, or Lenovo IdeaPad 5 Ryzen 5",
     "storage": "string or null",
+    "ram": "string or null",
     "stated_condition": "string or null",
     "assessed_condition": "your own assessment, e.g. good - light cosmetic wear",
     "matches_stated_condition": "yes | no | unclear",
@@ -493,15 +508,13 @@ Return ONLY a valid JSON object — no markdown fences, no text outside the JSON
     "original_description": "as provided",
     "translated_description": "natural English, romanized Nepali translated",
     "extracted_claims": {
-      "battery_health_percent": "number or null",
-      "face_id": "claimed_working | not_mentioned | claimed_broken",
-      "true_tone": "claimed_working | not_mentioned | claimed_broken",
-      "recently_reset_or_updated": "string",
+      "battery_health_percent": "number or null — null when the category has no battery",
       "box_included": "boolean or null",
       "accessories": ["string"],
       "reason_for_selling": "string or null",
       "other_notes": ["string"]
     },
+    "category_specific_claims": { "short_key": "claimed_working | claimed_broken | not_mentioned | short string" },
     "claim_credibility": "does the description read honest/experienced or vague/salesy, and why"
   },
   "image_analysis": {
@@ -514,7 +527,7 @@ Return ONLY a valid JSON object — no markdown fences, no text outside the JSON
         "findings": [
           {
             "type": "scratch | dent | chip | crack | screen_defect | stain | wear | replaced_part | artifact",
-            "location": "e.g. top-left frame corner",
+            "location": "e.g. top-left corner",
             "severity": "none | minor | moderate | severe",
             "confidence": "high | medium | low",
             "notes": "string"
@@ -522,22 +535,14 @@ Return ONLY a valid JSON object — no markdown fences, no text outside the JSON
         ]
       }
     ],
-    "defect_summary": {
-      "screen": ["string"],
-      "body_frame": ["string"],
-      "back_glass": ["string"],
-      "camera": ["string"],
-      "other": ["string"]
-    },
     "not_verifiable_from_images": ["string"]
   },
   "red_flags": ["string"],
-  "green_flags": ["string"] 
-  },
+  "green_flags": ["string"],
   "buyer_guidance": {
-    "questions_to_ask_seller": ["string"],
-    "in_person_checks": ["e.g. Settings > Battery > Battery Health, test Face ID, check True Tone, verify IMEI via *#06#"],
-    "negotiation_leverage": ["e.g. battery replacement cost, missing box"],
+    "questions_to_ask_seller": ["category-appropriate questions"],
+    "in_person_checks": ["category-appropriate checklist, e.g. phones: Battery Health menu, biometrics test, IMEI via *#06#, lock status; laptops: type every key, cycle count via powercfg/About, screen uniformity, SMART health; desktops: boot to BIOS, component IDs match specs, SMART, temps under load"],
+    "negotiation_leverage": ["string"],
     "walk_away_if": ["string"]
   },
   "verdict": {
