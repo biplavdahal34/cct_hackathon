@@ -117,6 +117,39 @@ docker compose up --build
  
 
 The first analysis takes 15–60 seconds: page scrape, image downloads, and two Gemini calls. The loading screen tells you which stage is running.
+## API keys and usage caps
+
+BEAT's own Gemini and Apify accounts are free plans, so analyses that use them are metered.
+Users can add their **own** free keys on the Account page; those analyses use the user's
+quota and are not metered. Every number below is an environment variable (see `.env.example`).
+
+| Cap | Default | Applies to |
+|---|---|---|
+| `FREE_ANALYSES_PER_HOUR` | 6 | per user, analyses on the shared Gemini key |
+| `FREE_FACEBOOK_PER_HOUR` | 2 | per user, Facebook listings on the shared Apify token |
+| `FREE_ANALYSES_PER_DAY_GLOBAL` | 100 | everyone combined — set below your Gemini daily quota |
+| `FREE_FACEBOOK_PER_DAY_GLOBAL` | 15 | everyone combined — set below your Apify credits |
+| `MAX_ANALYSIS_IMAGES` | 6 | photos sent to Gemini per listing |
+| `REUSE_ANALYSIS_DAYS` | 7 | a listing checked (by anyone) within this window shows the stored report instead of re-running; “Check again” on the report forces a fresh run |
+
+Counters live in the database (`usage_event`), so they are exact across workers and survive
+restarts. nginx additionally rate-limits raw requests per IP (`limit_req`, 10 r/s, burst 30).
+
+**How user keys are stored.** Validated with the provider once on save, then encrypted with
+Fernet under `KEY_ENCRYPTION_KEY` (never in the session, never rendered back, never logged;
+the Apify token is sent as an `Authorization` header, not a URL parameter). Saving or removing
+a key requires the account password. Every add/replace/remove/use is recorded in `key_event`
+without key material.
+
+```bash
+venv/bin/flask --app flask_app gen-encryption-key   # make KEY_ENCRYPTION_KEY (keep out of git/image)
+venv/bin/flask --app flask_app rotate-api-keys      # after putting a new key first in KEY_ENCRYPTION_KEY
+venv/bin/flask --app flask_app wipe-api-keys        # breach response: delete all stored user keys
+venv/bin/python -m unittest -v                      # tests for caps + key storage
+```
+
+If `KEY_ENCRYPTION_KEY` is unset the app still runs; the Account page just says key storage is off.
+
 Project structure
 text
  

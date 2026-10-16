@@ -5,9 +5,20 @@ services:
       - "8000"                 
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - APIFY_TOKEN=${APIFY_TOKEN}
+      - RESEND_API_KEY=${RESEND_API_KEY}
       - SECRET_KEY=${SECRET_KEY}
+      - KEY_ENCRYPTION_KEY=${KEY_ENCRYPTION_KEY}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-1}
+      - REUSE_ANALYSIS_DAYS=${REUSE_ANALYSIS_DAYS:-7}
       - OXYLABS_USERNAME=${OXYLABS_USERNAME}
       - OXYLABS_PASSWORD=${OXYLABS_PASSWORD}
+      # usage caps for the shared free-tier keys (see limits.py)
+      - FREE_ANALYSES_PER_HOUR=${FREE_ANALYSES_PER_HOUR:-6}
+      - FREE_FACEBOOK_PER_HOUR=${FREE_FACEBOOK_PER_HOUR:-2}
+      - FREE_ANALYSES_PER_DAY_GLOBAL=${FREE_ANALYSES_PER_DAY_GLOBAL:-100}
+      - FREE_FACEBOOK_PER_DAY_GLOBAL=${FREE_FACEBOOK_PER_DAY_GLOBAL:-15}
+      - MAX_ANALYSIS_IMAGES=${MAX_ANALYSIS_IMAGES:-6}
     volumes:
       - ./data:/app/instance   
                                
