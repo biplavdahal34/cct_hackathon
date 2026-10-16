@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Account — BEAT{% endblock %}
+{% block content %}
+<div class="narrow">
+  <h2 class="serif" style="font-size:30px; margin-bottom:18px">Account</h2>
+
+  <div class="card">
+    <div class="profile">
+      <span class="avatar lg">{{ current_user.username[0]|upper }}</span>
+      <div>
+        <div class="n">{{ current_user.username }}</div>
+        <div class="e">{{ current_user.email }}</div>
+      </div>
+    </div>
+    <div style="margin-top:18px">
+      <div class="kv"><span class="k">Listings checked</span><span class="v">{{ count }}</span></div>
+      <div class="kv"><span class="k">Member since</span><span class="v">{{ current_user.created_at.strftime('%b %d, %Y') if current_user.created_at else '—' }}</span></div>
+    </div>
+  </div>
+
+  {# ── API keys ── #}
+  <section id="keys" style="margin-top:28px">
+    <h2 class="serif" style="font-size:24px; margin-bottom:6px">Your API keys</h2>
+    <p class="muted" style="font-size:14px; margin-bottom:14px">
+      BEAT runs on free API plans shared by everyone, so there's a limit on how many listings each person can check per hour.
+      If you add your own free keys, your checks use your own quota instead and the limit no longer applies to you.
+    </p>
+
+    {% set own_all = keys.gemini.saved and keys.apify.saved %}
+    <div class="card quota">
+      {% if keys.gemini.saved %}
+        <p><b>Your own Gemini key is in use.</b> BEAT's hourly limit doesn't apply to your checks.</p>
+      {% else %}
+        <p><b>{{ left.analyses }} of {{ left.analyses_cap }}</b> shared checks left this hour</p>
+      {% endif %}
+      {% if keys.apify.saved %}
+        <p class="muted">Facebook listings use your own Apify token.</p>
+      {% else %}
+        <p class="muted">{{ left.facebook }} of {{ left.facebook_cap }} of those can be Facebook listings.</p>
+      {% endif %}
+    </div>
+
+    {% if not byok_enabled %}
+    <div class="flash" style="margin-top:12px">Key storage isn't enabled on this server yet, so keys can't be saved.</div>
+    {% endif %}
+
+    {% for pid, k in keys.items() %}
+    <div class="card keycard">
+      <div class="keyhead">
+        <h3 style="margin:0">{{ k.label }}</h3>
+        {% if k.saved %}<span class="pill ok">Saved ····{{ k.last4 }}</span>{% else %}<span class="pill plain">Not added</span>{% endif %}
+      </div>
+      <p class="muted" style="font-size:14px">{{ k.help }} <a href="{{ k.where }}" target="_blank" rel="noopener">Get a free key ↗</a></p>
+      {% if k.saved %}
+      <p class="muted" style="font-size:13px; margin-top:4px">Added {{ k.added_at|timesince }}{% if k.last_used_at %} · last used {{ k.last_used_at|timesince }}{% else %} · not used yet{% endif %}</p>
+      {% endif %}
+
+      {% if byok_enabled %}
+      <form class="keyform" method="post" action="{{ url_for('manage_api_key', provider=pid) }}" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label for="key-{{ pid }}">{{ 'New key (replaces the saved one)' if k.saved else 'Key' }}</label>
+          <input class="input" id="key-{{ pid }}" name="api_key" type="password" autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-secret placeholder="Paste your {{ k.label }} key">
+        </div>
+        <div class="field">
+          <label for="pw-{{ pid }}">Your BEAT password</label>
+          <input class="input" id="pw-{{ pid }}" name="password" type="password" autocomplete="current-password" placeholder="Required to change keys">
+        </div>
+        <div class="keyacts">
+          <button class="btn primary" type="submit" name="action" value="save">{{ 'Replace key' if k.saved else 'Verify and save' }}</button>
+          {% if k.saved %}<button class="btn quiet" type="submit" name="action" value="remove" formnovalidate>Remove key</button>{% endif %}
+        </div>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <details class="card lim" style="margin-top:14px">
+      <summary>How your keys are handled <span class="plus">+</span></summary>
+      <ul class="dots">
+        <li>Each key is checked with the provider once when you save it, then stored encrypted. It's decrypted only while one of your own checks is running, and never shown again — only the last four characters.</li>
+        <li>Keys are used only for listings you check yourself. Nothing else on BEAT touches them.</li>
+        <li>Your photos and listing text go to Google under your own key, so Google's terms for your account apply.</li>
+        <li>Create a key just for BEAT. Apify can issue a token limited to running actors; for Gemini, a free AI Studio key with a daily quota set in Google Cloud. Remove it here any time.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="card" style="margin-top:28px">
+    <h3>Session</h3>
+    <p class="muted" style="font-size:14px; margin-bottom:14px">Your light/dark choice is remembered on this browser. Logging out ends this session on this device.</p>
+    <form method="post" action="{{ url_for('logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn danger" type="submit">Log out</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

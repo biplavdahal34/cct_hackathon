@@ -1,0 +1,36 @@
+{# Shared template pieces. Import with: {% import "_macros.html" as m %} #}
+
+{# Score ring. colour is a badge_color (green|yellow|red) or a tone (ok|warn|bad). #}
+{% macro ring(score, colour, cls='') -%}
+<span class="ring {{ colour or '' }} {{ cls }}" style="--v:{{ score or 0 }}" role="img" aria-label="Score {{ score or 0 }} out of 100">
+  <svg viewBox="0 0 36 36" aria-hidden="true"><circle class="bgc" cx="18" cy="18" r="15.9" pathLength="100"/><circle class="fgc" cx="18" cy="18" r="15.9" pathLength="100"/></svg>
+  <b>{{ score or 0 }}</b>
+</span>
+{%- endmacro %}
+
+{# Flash messages. Backend categories: error / danger → bad, ok → good. #}
+{% macro flashes() -%}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+{% if msgs %}
+<div class="flashes" role="status">
+  {% for cat, text in msgs %}
+  <div class="flash {{ 'bad' if cat in ('error', 'danger') else ('good' if cat == 'ok' else '') }}">
+    <span>{{ text }}</span>
+    <button class="x" type="button" aria-label="Dismiss">×</button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+{%- endmacro %}
+
+{# Human label for a listing source value. #}
+{% macro source_label(src) -%}
+{{ {'hamrobazaar': 'Hamrobazaar', 'facebook_marketplace': 'Facebook Marketplace', 'facebook_post': 'Facebook post'}.get(src, (src or '')|replace('_', ' ')|title) }}
+{%- endmacro %}
+
+{# First listing photo as a thumbnail. Only https URLs can go through the /img proxy. #}
+{% macro thumb(images, cls='') -%}
+{% set src = (images or [])|first %}
+<span class="thumb {{ cls }}">{% if src and src.startswith('https://') %}<img src="/img?u={{ src|urlencode }}" alt="" loading="lazy">{% endif %}</span>
+{%- endmacro %}

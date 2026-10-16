@@ -5,8 +5,9 @@ WORKDIR /app
 COPY requirement.txt .
 RUN pip install --no-cache-dir -r requirement.txt
 
-COPY flask_app.py functions.py ./
+COPY *.py ./
 COPY templates/ templates/
+COPY static/ static/
 
 EXPOSE 8000
 

@@ -38,3 +38,8 @@ htmlcov/
 
 .DS_Store
 Thumbs.db
+# local screenshot/preview scratch
+.preview/
+
+# docker bind-mount for the production database
+data/

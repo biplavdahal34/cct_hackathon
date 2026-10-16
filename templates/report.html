@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ A.product_summary.title }} — BEAT{% endblock %}
+{% block wide %}wide{% endblock %}
+
+{% block content %}
+{% set v = A.verdict %}
+{% set vc = v.badge_color or '' %}
+{% set ia = A.image_analysis or {} %}
+{% set da = A.description_analysis or {} %}
+{% set pa = A.price_analysis or {} %}
+{% set per_image = ia.per_image or [] %}
+{% set n_photos = per_image|length %}
+{% set n_red = (A.red_flags or [])|length %}
+{% set n_green = (A.green_flags or [])|length %}
+{% set bg = A.buyer_guidance or {} %}
+{% set qs = bg.questions_to_ask_seller or [] %}
+{% set cks = bg.in_person_checks or [] %}
+{% set wk = bg.walk_away_if or [] %}
+{% set lev = bg.negotiation_leverage or [] %}
+{% set source = listing.source or a.source %}
+{% set seller = listing.seller or {} %}
+
+{# fair-range bar inputs: only when the range is two real numbers and there is an asking price #}
+{% set rng = pa.estimated_fair_range_npr %}
+{% set ask = (A.product_summary.asking_price or {}).amount %}
+{% set has_range = rng is sequence and rng is not string and rng|length == 2 and rng[0] is number and rng[1] is number and rng[1] > rng[0] %}
+{% if has_range and ask is number %}
+  {% set lo, hi = rng[0], rng[1] %}
+  {% set pos = [[((ask - lo) / (hi - lo) * 100)|round(1), 0]|max, 100]|min %}
+  {% set where = 'below' if ask < lo else ('above' if ask > hi else 'inside') %}
+{% endif %}
+
+{# comparable listings: raw search hits minus the ones the model excluded #}
+{% set md = A.market_data %}
+{% set comps = [] %}
+{% if md and md.listings_used and md.listings %}
+  {% set excluded = (md.excluded or [])|map(attribute='title')|list %}
+  {% set comps = md.listings|rejectattr('title', 'in', excluded)|list %}
+{% endif %}
+
+<article id="result" class="reveal vc-{{ vc }}">
+
+  <header class="rhead">
+    <div>
+      <div class="crumbs">
+        <a href="{{ url_for('analyses') }}">Analyses</a><span>/</span>
+        <span>{{ m.source_label(source) }}</span><span>/</span>
+        <span>checked {{ a.created_at|timesince }}</span>
+        <form method="post" action="{{ url_for('analyze_url') }}" class="inline" data-busy="Checking…">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="url" value="{{ listing.url }}">
+          <input type="hidden" name="fresh" value="1">
+          <button class="btn sm quiet" type="submit" title="Run a new analysis of this listing">Check again</button>
+        </form>
+      </div>
+      <h1>{{ A.product_summary.title }}</h1>
+      <p class="lead">{{ v.one_liner }}</p>
+      <div class="chips">
+        <span class="pill plain">{{ (A.device_category or 'device')|title }}</span>
+        {% if A.product_summary.location %}<span class="pill plain">{{ A.product_summary.location }}</span>{% endif %}
+        <a class="pill plain" href="{{ listing.url }}" target="_blank" rel="noopener">Original listing ↗</a>
+      </div>
+    </div>
+    <div class="scorecard">
+      {{ m.ring(v.score_0_100, vc, 'xl') }}
+      <div style="text-align:center">
+        <div class="rate">{{ (v.rating or '')|replace('_', ' ')|capitalize }}</div>
+        <div class="cap">BEAT score</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><small>Asking price</small><b class="num">{{ price.main or '—' }}</b></div>
+    <div class="stat"><small>Price check</small><b class="t-{{ price.tone or '' }}">{{ (price.verdict_text or '—')|capitalize }}</b></div>
+    <div class="stat"><small>Photos checked</small><b class="num">{{ n_photos }}</b></div>
+    <div class="stat"><small>Red flags</small><b class="num {{ 't-bad' if n_red else 't-ok' }}">{{ n_red }}</b></div>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Report sections">
+    <button type="button" class="on" data-t="summary" role="tab" aria-selected="true">Summary{% if n_red %}<i class="cnt alert">{{ n_red }}</i>{% endif %}</button>
+    <button type="button" data-t="photos" role="tab" aria-selected="false">Photos{% if n_photos %}<i class="cnt">{{ n_photos }}</i>{% endif %}</button>
+    <button type="button" data-t="price" role="tab" aria-selected="false">Price</button>
+    <button type="button" data-t="description" role="tab" aria-selected="false">Description</button>
+    <button type="button" data-t="checklist" role="tab" aria-selected="false">Before you buy</button>
+    <button type="button" data-t="details" role="tab" aria-selected="false">Details</button>
+  </nav>
+
+  {# ── SUMMARY ── #}
+  <section class="tp" data-t="summary" role="tabpanel" aria-label="Summary">
+    <div class="card">
+      <h3>Why this score</h3>
+      <p class="lead-p">{{ v.reasoning }}</p>
+      {% if v.ideal_for or v.not_ideal_for %}
+      <div class="fit">
+        <div>
+          <span class="kicker t-ok">Good for</span>
+          {% if v.ideal_for is string %}<p>{{ v.ideal_for }}</p>
+          {% else %}<ul class="dots ok">{% for x in v.ideal_for or [] %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+        <div>
+          <span class="kicker t-bad">Not for</span>
+          {% if v.not_ideal_for is string %}<p>{{ v.not_ideal_for }}</p>
+          {% else %}<ul class="dots bad">{% for x in v.not_ideal_for or [] %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="cols2">
+      <div class="card flag red">
+        <h3>Red flags <span class="count" style="margin-left:auto">{{ n_red }}</span></h3>
+        {% if n_red %}<ul class="dots bad">{% for f in A.red_flags %}<li>{{ f }}</li>{% endfor %}</ul>
+        {% else %}<p class="none">Nothing suspicious came up.</p>{% endif %}
+      </div>
+      <div class="card flag green">
+        <h3>Green flags <span class="count" style="margin-left:auto">{{ n_green }}</span></h3>
+        {% if n_green %}<ul class="dots ok">{% for f in A.green_flags %}<li>{{ f }}</li>{% endfor %}</ul>
+        {% else %}<p class="none">Nothing specific stood out.</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Seller</h3>
+      <div class="seller">
+        {% if seller.profile_picture and seller.profile_picture.startswith('https://') %}
+        <img src="/img?u={{ seller.profile_picture|urlencode }}" alt="">
+        {% else %}<span class="avatar soft" style="width:44px;height:44px;color:var(--muted)">{{ (seller.name or 'S')|trim|first|upper }}</span>{% endif %}
+        <div>
+          <div class="sn">{{ seller.name|trim if seller.name else 'Unknown seller' }}</div>
+          <div class="sp">{{ seller.phone if seller.phone else 'Contact through the listing' }}</div>
+        </div>
+        {% if seller.profile_url %}<a class="btn sm" style="margin-left:auto" href="{{ seller.profile_url }}" target="_blank" rel="noopener">Profile ↗</a>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ── PHOTOS ── #}
+  <section class="tp" data-t="photos" role="tabpanel" aria-label="Photo inspection" hidden>
+    {% if n_photos %}<p class="tabintro">BEAT looked at {{ n_photos }} photo{{ 's' if n_photos != 1 }} for damage and for signs they aren't of the actual device.</p>{% endif %}
+    {% for p in per_image %}
+    {% set src = listing.images[p.image_index - 1] if listing.images and listing.images|length >= p.image_index else none %}
+    <div class="card photo">
+      <div>
+        {% if src %}<img src="/img?u={{ src|urlencode }}" alt="Listing photo {{ p.image_index }}" loading="lazy">
+        {% else %}<div class="noimg">Photo not available</div>{% endif %}
+      </div>
+      <div>
+        <div class="photo-head">
+          <h3>Photo {{ p.image_index }}</h3>
+          <span class="pill {{ 'ok' if p.photo_authenticity == 'real_device_photo' else 'warn' }}">{{ (p.photo_authenticity or 'unclear')|replace('_', ' ')|capitalize }}</span>
+        </div>
+        <p class="psum">{{ p.summary }}</p>
+        {% for f in p.findings or [] %}
+        <div class="find s-{{ f.severity }}">
+          <div class="find-top">
+            <b>{{ f.location }}</b>
+            <span class="sev">{{ f.severity }}</span>
+            {% if f.confidence == 'low' %}<span class="pill warn plain">not sure</span>{% endif %}
+          </div>
+          <p>{{ f.notes }}</p>
+        </div>
+        {% endfor %}
+        {% if not p.findings %}<p class="none" style="margin-top:10px">No damage spotted in this photo.</p>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="card"><p class="none">No photos could be checked for this listing.</p></div>
+    {% endfor %}
+    {% if ia.not_verifiable_from_images %}
+    <div class="card nvnote"><b>Can't be judged from photos:</b> {{ ia.not_verifiable_from_images|join(' · ') }}</div>
+    {% endif %}
+  </section>
+
+  {# ── PRICE ── #}
+  <section class="tp" data-t="price" role="tabpanel" aria-label="Price check" hidden>
+    {% if price.main %}
+    <div class="card">
+      <div class="price-row">
+        <span class="price-big">{{ price.main }}</span>
+        <span class="pill {{ price.tone or '' }}">{{ price.verdict_text|capitalize }}</span>
+      </div>
+      <p class="price-meta">Fair range <b>{{ price.range }}</b> &nbsp;·&nbsp; Confidence <b>{{ price.confidence }}</b>{% if md and md.listings_used %} &nbsp;·&nbsp; Based on <b>{{ md.listings_used }}</b> live listing{{ 's' if md.listings_used != 1 }}{% endif %}</p>
+      {% if has_range and ask is number %}
+      <div class="rangebar">
+        <p class="none">The asking price sits <b>{{ where }}</b> the fair range.</p>
+        <div class="track"><span class="pin" style="--x:{{ pos }}%"></span></div>
+        <div class="lbls"><span><b>{{ lo|fmt }}</b> low</span><span>asking <b>{{ ask|fmt }}</b></span><span>high <b>{{ hi|fmt }}</b></span></div>
+      </div>
+      {% endif %}
+      <p class="price-why">{{ pa.reasoning }}</p>
+    </div>
+    {% else %}
+    <div class="card"><p class="none">This listing doesn't show a price, so there's nothing to compare.</p></div>
+    {% endif %}
+    {% if comps %}
+    <div class="card">
+      <h3>Similar listings right now <span class="count" style="margin-left:auto">{{ comps|length }}</span></h3>
+      {% for c in comps[:8] %}
+      <a class="comp" href="{{ c.url }}" target="_blank" rel="noopener"><span class="ct">{{ c.title }}</span><span class="cp">NPR {{ c.price|fmt }}</span></a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  {# ── DESCRIPTION ── #}
+  <section class="tp" data-t="description" role="tabpanel" aria-label="Seller's description" hidden>
+    <div class="cols2">
+      <div class="card"><h3>What the seller wrote</h3><p class="desc">{{ da.original_description }}</p></div>
+      <div class="card"><h3>In plain English</h3><p class="desc">{{ da.translated_description }}</p></div>
+    </div>
+    <div class="card cred"><h3>Do the claims hold up?</h3><p class="lead-p">{{ da.claim_credibility }}</p></div>
+  </section>
+
+  {# ── BEFORE YOU BUY ── #}
+  <section class="tp" data-t="checklist" role="tabpanel" aria-label="Before you buy" hidden>
+    {% if qs or cks %}
+    <div class="cols2">
+      {% if qs %}<div class="card"><h3>Ask the seller</h3><ol class="steps">{% for q in qs %}<li>{{ q }}</li>{% endfor %}</ol></div>{% endif %}
+      {% if cks %}<div class="card"><h3>Check when you meet</h3><ol class="steps">{% for c in cks %}<li>{{ c }}</li>{% endfor %}</ol></div>{% endif %}
+    </div>
+    {% endif %}
+    {% if lev %}<div class="card"><h3>Reasons to offer less</h3><ul class="dots">{% for l in lev %}<li>{{ l }}</li>{% endfor %}</ul></div>{% endif %}
+    {% if wk %}<div class="card walk"><h3>Walk away if</h3><ul class="xs">{% for w in wk %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+    {% if not (qs or cks or wk or lev) %}<div class="card"><p class="none">No checklist was produced for this listing.</p></div>{% endif %}
+  </section>
+
+  {# ── DETAILS ── #}
+  <section class="tp" data-t="details" role="tabpanel" aria-label="Listing details" hidden>
+    <div class="card">
+      <h3>Listing facts</h3>
+      {% for r in facts %}
+      <div class="kv"><span class="k">{{ r.label }}</span><span class="v">{% if r.tone %}<span class="pill {{ r.tone }}">{{ r.value|capitalize }}</span>{% else %}{{ r.value }}{% endif %}</span></div>
+      {% endfor %}
+    </div>
+    {% if A.ai_sources %}
+    <div class="card">
+      <h3>Sources BEAT checked</h3>
+      {% for s in A.ai_sources %}<a class="src" href="{{ s.uri }}" target="_blank" rel="noopener"><span class="st">{{ s.title }}</span><span class="ext">↗</span></a>{% endfor %}
+    </div>
+    {% endif %}
+    {% if A.limitations %}
+    <details class="card lim">
+      <summary>What this report couldn't check <span class="plus">+</span></summary>
+      <ul class="dots">{% for l in A.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+  </section>
+
+  <footer class="rfoot">
+    <span>Written by an AI from the listing's photos and text. Always check the device in person before paying.</span>
+    <a href="{{ listing.url }}" target="_blank" rel="noopener">Original listing ↗</a>
+  </footer>
+</article>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Your analyses — BEAT{% endblock %}
+{% block content %}
+<div class="section-head" style="margin-bottom:18px">
+  <h2 class="serif" style="font-size:30px">Your analyses</h2>
+</div>
+
+{% if items %}
+<div class="toolbar">
+  <label class="sr" for="filter">Search your analyses</label>
+  <input class="input" id="filter" placeholder="Search by title or link…" autocomplete="off">
+  <span class="n" id="count">{{ items|length }} {{ 'analysis' if items|length == 1 else 'analyses' }}</span>
+</div>
+
+<div class="hlist" id="rows">
+  {% for a in items %}
+  <div class="hrow" data-s="{{ (a.title ~ ' ' ~ a.url)|lower }}">
+    {{ m.thumb(a.listing.images, 'lg') }}
+    <div style="min-width:0">
+      <div class="t"><a href="{{ url_for('report', analysis_id=a.id) }}">{{ a.title }}</a></div>
+      <div class="m">
+        <span class="pill {{ a.badge_color }}">{{ (a.rating or '')|replace('_', ' ')|capitalize }}</span>
+        {% if a.price_amount %}<span>{{ a.price_currency or 'NPR' }} {{ a.price_amount|fmt }}</span>{% endif %}
+        <span>{{ m.source_label(a.source) }}</span>
+      </div>
+    </div>
+    {{ m.ring(a.score, a.badge_color, 'md') }}
+    <span class="when">{{ a.created_at|timesince }}</span>
+    <div class="acts">
+      <a class="btn sm" href="{{ url_for('report', analysis_id=a.id) }}">Open</a>
+      <form method="post" action="{{ url_for('delete_analysis', analysis_id=a.id) }}" data-confirm="Delete this analysis? This can't be undone.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn sm quiet" type="submit" aria-label="Delete {{ a.title }}">Delete</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><b>Nothing here yet</b>Every listing you check is saved here so you can come back to it.<br><a class="btn primary" href="{{ url_for('home') }}">Check a listing</a></div>
+{% endif %}
+{% endblock %}
