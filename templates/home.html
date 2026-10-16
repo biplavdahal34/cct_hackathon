@@ -21,26 +21,28 @@
     </div>
 
     <div class="fold"><div>
-      <p class="formhint">Works with hamrobazaar.com and Facebook links<span class="sep">·</span>usually takes under a minute</p>
+      <div class="urlfoot">
+        {% if current_user.is_authenticated %}
+        <button class="advbtn" type="button" data-toggle="advPanel" aria-expanded="false" aria-controls="advPanel">Advanced options <span class="caret" aria-hidden="true"></span></button>
+        {% endif %}
+        <p class="formhint">Works with hamrobazaar.com and Facebook links<span class="sep">·</span>usually takes under a minute</p>
+      </div>
       {{ m.flashes() }}
 
       {% if current_user.is_authenticated %}
-      <div class="adv">
-        <button class="btn quiet sm" type="button" data-toggle="advPanel" aria-expanded="false" aria-controls="advPanel">Advanced options</button>
-        <div class="advpanel" id="advPanel" hidden>
-          <p class="advnote">Use your own free API keys for this check. They're used once and not saved —
-            <a href="{{ url_for('account') }}#keys">save them on your account</a> to skip this every time.</p>
-          <div class="advgrid">
-            <div class="field">
-              <label for="gemini_key">Gemini key</label>
-              <input class="input" id="gemini_key" name="gemini_key" type="password" autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-secret
-                     placeholder="{{ 'Saved ····' ~ keys.gemini.last4 ~ ' — paste to override' if keys and keys.gemini.saved else 'Optional' }}">
-            </div>
-            <div class="field">
-              <label for="apify_key">Apify token <span class="muted">(Facebook links only)</span></label>
-              <input class="input" id="apify_key" name="apify_key" type="password" autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-secret
-                     placeholder="{{ 'Saved ····' ~ keys.apify.last4 ~ ' — paste to override' if keys and keys.apify.saved else 'Optional' }}">
-            </div>
+      <div class="advpanel" id="advPanel" hidden>
+        <p class="advnote">Use your own free API keys for this check. They're used once and not saved —
+          <a href="{{ url_for('account') }}#keys">save them on your account</a> to skip this every time.</p>
+        <div class="advgrid">
+          <div class="field">
+            <label for="gemini_key">Gemini key</label>
+            <input class="input" id="gemini_key" name="gemini_key" type="password" autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-secret
+                   placeholder="{{ 'Saved ····' ~ keys.gemini.last4 ~ ' — paste to override' if keys and keys.gemini.saved else 'Optional' }}">
+          </div>
+          <div class="field">
+            <label for="apify_key">Apify token <span class="muted">(Facebook links only)</span></label>
+            <input class="input" id="apify_key" name="apify_key" type="password" autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-secret
+                   placeholder="{{ 'Saved ····' ~ keys.apify.last4 ~ ' — paste to override' if keys and keys.apify.saved else 'Optional' }}">
           </div>
         </div>
       </div>

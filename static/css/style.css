@@ -276,7 +276,7 @@ a.avatar:hover { text-decoration: none; filter: brightness(1.06); }
 .urlbar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow); }
 .urlbar .input { border: none; background: transparent; box-shadow: none !important; padding: 10px 12px; font-size: 15.5px; }
 .urlbar .btn { padding: 11px 18px; border-radius: 10px; }
-.formhint { text-align: center; color: var(--faint); font-size: 13px; margin: 12px 0 0; }
+.formhint { color: var(--faint); font-size: 13px; margin: 12px 0 0; }
 .formhint .sep { margin: 0 7px; }
 .formerr { color: var(--bad); font-size: 14px; margin: 12px auto 0; max-width: 720px; text-align: center; }
 .recent { margin-top: 52px; }
@@ -294,16 +294,30 @@ a.avatar:hover { text-decoration: none; filter: brightness(1.06); }
 .arow .verdict { font-weight: 500; color: var(--text); }
 @media (max-width: 520px) { .arow .when { display: none; } .urlbar { flex-direction: column; } .urlbar .btn { width: 100%; } }
 
-/* advanced options under the URL bar: per-check API keys */
-.adv { max-width: 720px; margin: 10px auto 0; text-align: center; }
-.advpanel { text-align: left; margin-top: 10px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r); background: var(--panel); box-shadow: var(--shadow); }
+/* under the URL bar: ADVANCED OPTIONS button (left) + hint (right), panel below */
+.urlfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.urlfoot .formhint { margin: 0; text-align: right; }
+.advbtn {
+  display: inline-flex; align-items: center; gap: 9px; padding: 8px 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text); box-shadow: var(--shadow);
+  font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap;
+  transition: border-color .12s ease, color .12s ease;
+}
+.advbtn:hover, .advbtn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.advbtn .caret { width: 7px; height: 7px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .15s ease; }
+.advbtn[aria-expanded="true"] .caret { transform: translateY(2px) rotate(-135deg); }
+.advpanel { margin-top: 10px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r); background: var(--panel); box-shadow: var(--shadow); }
 .advpanel[hidden] { display: none; }
 .advnote { font-size: 13.5px; color: var(--muted); margin-bottom: 12px; }
 .advgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .advgrid .field { margin: 0; }
 .advgrid .field label { display: block; font-size: 13px; font-weight: 550; margin-bottom: 6px; }
 .advgrid .field label .muted { font-weight: 400; }
-@media (max-width: 640px) { .advgrid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .urlfoot { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .urlfoot .formhint { text-align: left; }
+  .advgrid { grid-template-columns: 1fr; }
+}
 
 /* loading state: hero/recent fold away, a status panel appears */
 .fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .4s cubic-bezier(.4,0,.2,1), opacity .25s ease; }
