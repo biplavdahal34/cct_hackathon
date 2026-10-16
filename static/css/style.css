@@ -306,7 +306,7 @@ a.avatar:hover { text-decoration: none; filter: brightness(1.06); }
 .advbtn {
   display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 7px;
   border: 1px solid var(--border); background: var(--panel); color: var(--text); box-shadow: var(--shadow);
-  font-size: 11px; font-weight: 450; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap;
+  font-family: var(--display); font-size: 12.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
   transition: border-color .12s ease;
 }
 .advbtn:hover, .advbtn[aria-expanded="true"] { border-color: var(--muted); }
