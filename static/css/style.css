@@ -376,12 +376,17 @@ a.avatar:hover { text-decoration: none; filter: brightness(1.06); }
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs button {
-  flex: none; display: inline-flex; align-items: center; gap: 7px; margin-bottom: -1px;
-  padding: 12px 14px; border: none; border-bottom: 2px solid transparent; background: none;
+  position: relative; flex: none; display: inline-flex; align-items: center; gap: 7px;
+  padding: 12px 14px 13px; border: none; background: none;
   color: var(--muted); font-weight: 500; font-size: 14px; transition: color .12s ease;
 }
 .tabs button:hover { color: var(--text); }
-.tabs button.on { color: var(--text); border-bottom-color: var(--text); }
+.tabs button.on { color: var(--text); font-weight: 600; }
+/* active-tab marker: a bold rounded bar sitting on the divider line */
+.tabs button.on::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 4px;
+  border-radius: 999px; background: var(--text);
+}
 .tabs .cnt { font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 6px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
 .tabs .cnt.alert { background: var(--bad-bg); color: var(--bad); }
 
