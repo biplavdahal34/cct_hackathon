@@ -3,14 +3,17 @@
 You find an iPhone 14 on Hamrobazaar tagged "Like new" for NPR 51,000. The seller swears it's clean. The photos show a battery health screen reading 78%.
 
 This tool exists because that gap — between what a listing claims and what's actually true — is where used-phone buyers in Nepal get burned. Paste a listing URL and get a buyer's report: what the photos really show, what the seller's claims are worth, and what the phone should actually cost, based on what similar units are selling for right now on the same site.
-How it works
 
+## How it works
+
+```text
 listing URL
     │
     ▼
 scraper ────────────► title, price, condition, seller, specs,
-    │                 photos, description (handles Hamrobazaar's
-    │                 client-side rendering via its internal API)
+    │                 photos, description. Hamrobazaar through its
+    │                 internal API; Facebook Marketplace items and
+    │                 posts through Apify actors.
     ▼
 Gemini call #1 ─────► photo-by-photo defect inspection,
     (vision)          claim extraction, description translation
@@ -26,13 +29,9 @@ Gemini call #2 ─────► fair price range + verdict computed from
     │
     ▼
 buyer's report
-text
- 
-  
- 
- 
+```
 
-Everything is server-rendered Flask. The only JavaScript on the site is the theme toggle and the loading overlay — the analysis, rendering, and auth are all Python.
+Everything is server-rendered Flask. One small script (`static/js/app.js`) handles the theme toggle, the working state on the home page, report tabs, and clearing typed API keys after submit. The analysis, rendering, and auth are all Python.
 
 ## Features
 
@@ -42,6 +41,7 @@ Everything is server-rendered Flask. The only JavaScript on the site is the them
 - Specifications are pulled from both the rendered page *and* the embedded JSON inside the site's script tags, so nothing is missed
 - Product images scraped with a class-based fallback (`rounded-md` → `scale-110`) for listings with different markup
 - Scrape requests route through an optional residential proxy (Oxylabs) to avoid datacenter-IP blocks
+- Facebook Marketplace items and Facebook posts are fetched through Apify actors; the source is detected from the URL's hostname, never by substring
 
 **Photo analysis (Gemini, multimodal)**
 
@@ -78,7 +78,7 @@ Everything is server-rendered Flask. The only JavaScript on the site is the them
 **Interface**
 
 - Dark and light mode, persisted, applied before first paint (no flash)
-- Loading skeletons mirroring the report layout, with live pipeline phase text during the 15–60s analysis
+- While a check runs, the home page folds away and shows a status line, elapsed time, and a skeleton of the report
 - Product and seller images proxied through the app — Hamrobazaar's CDN blocks direct browser requests, so `<img src>` points at `/img` instead
 - Responsive layout: sidebar with listing facts and seller collapses on mobile; photo findings stack image-over-analysis
 
@@ -95,28 +95,21 @@ Local:
 ```bash
 python -m venv venv && source venv/bin/activate
 pip install -r requirement.txt
+cp .env.example .env             # fill in GOOGLE_API_KEY, SECRET_KEY, RESEND_API_KEY at least
 
-export GOOGLE_API_KEY=...        # Gemini API key
-export SECRET_KEY=...            # any long random string
-# optional: OXYLABS_USERNAME / OXYLABS_PASSWORD for the scraping proxy
-
-python flask_app.py              # http://127.0.0.1:5000
- 
- 
+SESSION_COOKIE_SECURE=0 python run.py   # http://127.0.0.1:5000 (plain http, so the secure cookie flag must be off)
+```
 
 Docker (with nginx in front):
-bash
- 
-  
- 
- 
+
+```bash
 cp .env.example .env             # fill in the values
 docker compose up --build
 # → http://localhost
- 
- 
+```
 
-The first analysis takes 15–60 seconds: page scrape, image downloads, and two Gemini calls. The loading screen tells you which stage is running.
+The first analysis takes 15–60 seconds: page scrape, image downloads, and two Gemini calls. The home page shows a status line and elapsed time while it runs.
+
 ## API keys and usage caps
 
 BEAT's own Gemini and Apify accounts are free plans, so analyses that use them are metered.
@@ -150,32 +143,44 @@ venv/bin/python -m unittest -v                      # tests for caps + key stora
 
 If `KEY_ENCRYPTION_KEY` is unset the app still runs; the Account page just says key storage is off.
 
-Project structure
-text
- 
-  
- 
- 
-flask_app.py        routes, auth, OTP, report rendering
-functions.py        scraper (detail page + search API), both Gemini calls
+## Project structure
+
+```text
+flask_app.py        app creation, config, extension wiring, CLI commands (gen-encryption-key, rotate-api-keys, wipe-api-keys)
+run.py              development entry point; gunicorn targets flask_app:app
+routes_main.py      home, analysis, report viewer, history, account, /img proxy
+routes_auth.py      register, OTP verification, login, logout
+report_views.py     pipeline helpers: normalization, view-models, source detection, scrape cache
+functions.py        scrapers (Hamrobazaar detail + search API, Facebook via Apify), both Gemini calls
+api_keys.py         bring-your-own keys: validate, encrypt, store, audit
+crypto.py           Fernet encryption at rest, master-key rotation
+limits.py           usage caps for analyses on the shared keys
+security.py         request rate limiting, client IP, CSRF helper, response headers
+otp.py              OTP generation, hashing, delivery through Resend
+models.py           User, Analysis, UserApiKey, KeyEvent, UsageEvent
+forms.py            WTForms for register / login / OTP
 templates/
-  bbeat.html        the report page
-  login.html        standalone login page
-  register.html     standalone registration page
-  verify_otp.html   OTP entry page
-nginx/nginx.conf    reverse proxy config
+  base.html, auth_base.html, _macros.html
+  home.html         URL box, advanced (own keys) panel, working state
+  report.html       the buyer's report, tabbed
+  analyses.html     a user's past checks
+  account.html      stored keys and remaining allowance
+  login.html, register.html, verify_otp.html
+static/css/style.css, static/js/app.js, static/fonts/
+tests/              unittest suite for caps and key storage
+docs/session-guide.html   design decisions, recipes, and what is not done yet
+nginx/nginx.conf    reverse proxy, per-IP rate limit
 Dockerfile / docker-compose.yml
- 
- 
-Known limitations
+```
+
+## Known limitations
 
 Said plainly, because a tool that judges honesty should be honest itself:
 
-     The photo analysis is only as good as the photos. A listing with two blurry shots gets a shallow report — the tool says so in a Limitations section rather than pretending.
-     Battery health, Face ID, IMEI status and similar can't be verified from static images. The report puts these in a "not assessable from photos" list and turns them into in-person checks instead.
-     Market pricing depends on what's currently listed on Hamrobazaar. For rare models with few comparables, confidence drops and the range widens — visibly.
-     Built for a demo: SQLite, two workers, no rate limiting. It handles a demo audience, not production traffic.
-     Hamrobazaar could change their markup or API tomorrow. The scraper has fallbacks, but this is the nature of scraping.
-
-
-A few deliberate choices, so you can defend or change them: emojis are at exactly zero because you'll see dozens of READMEs with rocket emojis and this one standing clean next to them reads as more confident, not plainer. The "Known limitations" section is kept because judges consistently reward projects that state their own boundaries — it signals you actually tested the edges. And the feature list is grouped by capability rather than dumped as one flat list, but everything from the whole build is in there: scraper fallbacks, the reverse-engineered search API, OTP attempt limits, the image proxy, all of it.
+- The photo analysis is only as good as the photos. A listing with two blurry shots gets a shallow report, and the report says so in its Limitations section rather than pretending.
+- Battery health, Face ID, IMEI status and similar cannot be verified from static images. The report puts these in a "not assessable from photos" list and turns them into in-person checks instead.
+- Market pricing depends on what is currently listed on Hamrobazaar. For rare models with few comparables, confidence drops and the range widens, visibly.
+- Hamrobazaar or Facebook could change their markup or API tomorrow. The scraper has fallbacks, but this is the nature of scraping.
+- Storage is SQLite behind two gunicorn workers. Fine for a small user base on one host; move to Postgres before scaling out.
+- OTP email goes through Resend. Until a sending domain is verified there, Resend's sandbox only delivers to the account's own address.
+- The report can be prompt-injected by a seller's description. The design assumes some of that gets through and limits what it can change: the verdict and score are validated against a fixed scale, and the comparables come from a separate search, not from the description.
