@@ -1,9 +1,11 @@
+import io
 import os
 import re
 import json
 import time
 import uuid
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 import requests
@@ -12,6 +14,7 @@ from urllib.parse import urlparse, parse_qs, urljoin, quote
 
 from google import genai
 from google.genai import types
+from PIL import Image, ImageOps
 
 
 # ── Oxylabs proxy (optional) ─────────────────────────────────────────────
@@ -996,6 +999,7 @@ HARD RULES
 - Every finding needs confidence: "high" (clearly visible), "medium" (probably visible), "low" (possibly an artifact/unclear).
 - Anything not assessable from photos belongs in not_verifiable_from_images — do not guess.
 - Do not reproduce personal contact info (phone numbers, full addresses) in the output; refer to "seller contact" generically.
+- description_analysis.original_description: always output an empty string. BEAT puts the seller's exact text there itself.
 - Be blunt and buyer-protective. Under-rating a risky listing is better than over-rating a bad one.
 - If the device category or model is unusual, say so in limitations rather than forcing a confident answer.
 
@@ -1026,7 +1030,7 @@ Return ONLY a valid JSON object — no markdown fences, no text outside the JSON
     "delivery_available": false
   },
   "description_analysis": {
-    "original_description": "as provided",
+    "original_description": "",
     "translated_description": "natural English, romanized Nepali translated",
     "extracted_claims": {
       "battery_health_percent": "number or null — null when the category has no battery",
@@ -1118,27 +1122,68 @@ def _disputes_existence(report: dict) -> bool:
     return any(_EXISTENCE_DISPUTE.search(str(b)) for b in blobs)
 
 
+def _fetch_image(url):
+    """One photo as (url, bytes, mime), or None when it is missing, not an image or too big."""
+    if not isinstance(url, str) or not url.startswith("https://"):
+        return None
+    try:
+        r = requests.get(url, timeout=30, headers=_UA, stream=True, allow_redirects=False)
+        r.raise_for_status()
+        ct = (r.headers.get("content-type") or "").split(";")[0]
+        if not ct.startswith("image/"):
+            return None
+        data = r.raw.read(MAX_IMAGE_BYTES + 1, decode_content=True)
+        if len(data) > MAX_IMAGE_BYTES:
+            return None
+    except Exception:
+        return None
+    return (url, data, ct)
+
+
 def download_images(urls, max_n: int = None) -> list:
-    """Fetch listing photos once: [(url, bytes, mime)]. Broken or oversized
-    images are skipped, never raised, so one bad photo cannot sink an analysis."""
-    out = []
-    for url in (urls or [])[:(max_n or MAX_ANALYSIS_IMAGES)]:
-        if not isinstance(url, str) or not url.startswith("https://"):
-            continue
-        try:
-            r = requests.get(url, timeout=30, headers=_UA, stream=True,
-                             allow_redirects=False)
-            r.raise_for_status()
-            ct = (r.headers.get("content-type") or "").split(";")[0]
-            if not ct.startswith("image/"):
-                continue
-            data = r.raw.read(MAX_IMAGE_BYTES + 1, decode_content=True)
-            if len(data) > MAX_IMAGE_BYTES:
-                continue
-        except Exception:
-            continue
-        out.append((url, data, ct))
-    return out
+    """Fetch listing photos once, all at the same time: [(url, bytes, mime)] in the order given.
+    Broken or oversized images are skipped, never raised, so one bad photo cannot sink an analysis."""
+    wanted = list((urls or [])[:(max_n or MAX_ANALYSIS_IMAGES)])
+    if not wanted:
+        return []
+    with ThreadPoolExecutor(max_workers=min(len(wanted), 8)) as pool:
+        fetched = list(pool.map(_fetch_image, wanted))
+    return [f for f in fetched if f]
+
+
+# Photos are scaled down before they go to the model: Gemini rescales large images itself, so
+# the extra pixels only cost upload time. 0 turns this off and sends the originals.
+ANALYSIS_IMAGE_MAX_SIDE = int(os.environ.get("ANALYSIS_IMAGE_MAX_SIDE", "1600"))
+_SMALL_ENOUGH_BYTES = 1_200_000
+
+
+def shrink_image(data: bytes, mime: str, max_side: int = None) -> tuple:
+    """(bytes, mime) to send to the model. A photo longer than max_side pixels, or heavier than
+    about 1.2 MB, is scaled down (orientation applied first) and re-encoded as JPEG. Anything
+    small, anything that cannot be decoded and anything that would get bigger is returned as is."""
+    max_side = ANALYSIS_IMAGE_MAX_SIDE if max_side is None else max_side
+    if not max_side:
+        return data, mime
+    try:
+        with Image.open(io.BytesIO(data)) as opened:
+            im = ImageOps.exif_transpose(opened)
+            if max(im.size) <= max_side and len(data) <= _SMALL_ENOUGH_BYTES:
+                return data, mime
+            if max(im.size) > max_side:
+                im.thumbnail((max_side, max_side), Image.LANCZOS)
+            if im.mode in ("RGBA", "LA", "P"):                      # flatten transparency onto white
+                rgba = im.convert("RGBA")
+                flat = Image.new("RGB", rgba.size, "white")
+                flat.paste(rgba, mask=rgba.split()[-1])
+                im = flat
+            elif im.mode != "RGB":
+                im = im.convert("RGB")
+            out = io.BytesIO()
+            im.save(out, "JPEG", quality=88, optimize=True)
+            smaller = out.getvalue()
+    except Exception:
+        return data, mime
+    return (smaller, "image/jpeg") if len(smaller) < len(data) else (data, mime)
 
 
 def analyze(product, gemini_key: str = None, max_images: int = None, images: list = None):
@@ -1147,7 +1192,12 @@ def analyze(product, gemini_key: str = None, max_images: int = None, images: lis
     client = gemini_client(gemini_key)
     if images is None:
         images = download_images(product.get("product_img") or [], max_images)
-    image_parts = [types.Part.from_bytes(data=data, mime_type=ct) for _, data, ct in images]
+    if images:
+        with ThreadPoolExecutor(max_workers=min(len(images), 8)) as pool:
+            sized = list(pool.map(lambda im: shrink_image(im[1], im[2]), images))
+    else:
+        sized = []
+    image_parts = [types.Part.from_bytes(data=data, mime_type=ct) for data, ct in sized]
 
     prompt = (gemini_prompt
               .replace("{{PRODUCT_JSON}}", json.dumps(product, ensure_ascii=False))

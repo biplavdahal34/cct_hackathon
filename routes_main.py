@@ -1,5 +1,6 @@
 """Main routes: home, listing analysis, report viewer, history, account, /img proxy."""
 import json
+import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -13,6 +14,7 @@ from flask_login import login_required, current_user
 from markupsafe import Markup, escape
 
 import api_keys
+import catalogue
 import chat
 import crypto
 import followup as followup_mod
@@ -28,13 +30,37 @@ from functions import analyze, market_analysis, download_images
 from knowledge import models as kmodels, protocols, repairs as krepairs, scams, nepal
 from models import Analysis, Followup
 from security import limiter, client_ip, csrf_ok, is_https, production
-from report_views import (normalize_listing, normalize_report, scrape_any,
+from report_views import (fill_original_description, normalize_listing, normalize_report, scrape_any,
                           listing_source, canonical_url, cache_get, cache_put,
                           facts_rows, price_vm, enrich, KEY_ACK_MESSAGE)
 
 # A report for the same listing younger than this is shown instead of re-running
 # the pipeline (no API spend, not metered). "Check again" on the report bypasses it.
 REUSE_DAYS = int(os.environ.get("REUSE_ANALYSIS_DAYS", "7"))
+
+
+# where the time goes in one analysis, one line per run, so a speed-up can be measured
+timing_log = logging.getLogger("beat.timing")
+if not timing_log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    timing_log.addHandler(_h)
+    timing_log.setLevel(logging.INFO)
+    timing_log.propagate = False
+
+
+class _Laps:
+    def __init__(self):
+        self.last = time.perf_counter()
+        self.d = {}
+
+    def lap(self, name):
+        now = time.perf_counter()
+        self.d[name] = now - self.last
+        self.last = now
+
+    def summary(self):
+        return " ".join(f"{k}={v:.1f}s" for k, v in self.d.items()) + f" total={sum(self.d.values()):.1f}s"
 
 # ------------------------------------------------------------------ image proxy
 IMG_HOSTS = {
@@ -139,6 +165,7 @@ def register_routes(app):
                     flash(f"{api_keys.PROVIDERS[provider]['label']} key: {e}", "error")
                     return redirect(url_for("home"))
         keys = {**saved, **typed}
+        laps = _Laps()
         cached = cache_get(url)
         server_gemini = "gemini" not in keys
         server_apify = source == "facebook" and "apify" not in keys and cached is None
@@ -162,7 +189,9 @@ def register_routes(app):
                 return redirect(url_for("home"))
             cache_put(url, listing)
 
+        laps.lap("scrape")
         images = download_images(listing.get("images") or listing.get("product_img") or [])
+        laps.lap("photos")
         try:
             report = normalize_report(analyze(listing, gemini_key=keys.get("gemini"), images=images))
         except ValueError as e:
@@ -173,6 +202,8 @@ def register_routes(app):
             flash("Analysis failed due to an unexpected error. Please try again.", "error")
             return redirect(url_for("home"))
 
+        fill_original_description(report, listing)
+        laps.lap("vision")
         ps = report.get("product_summary") or {}
 
         # live market pricing
@@ -203,6 +234,7 @@ def register_routes(app):
                                         "confidence": "low"}
             report["market_data"] = None
 
+        laps.lap("price")
         # everything BEAT derives in Python: snapshot + seller history, scam patterns,
         # model-number facts, repair estimates, the score itself, price guide, offer
         try:
@@ -217,6 +249,7 @@ def register_routes(app):
             app.logger.exception("Price contribution failed for %s", url)
             db.session.rollback()
 
+        laps.lap("python")
         # persist to history (redirect-after-post: refresh-safe, listed in sidebar)
         a = Analysis(
             user_id=current_user.id,
@@ -245,6 +278,8 @@ def register_routes(app):
         if used:
             api_keys.mark_used(current_user.id, used, a.id)
 
+        laps.lap("save")
+        timing_log.info("analysis %s source=%s photos=%d %s", a.id, listing.get("source"), len(images), laps.summary())
         return redirect(url_for("report", analysis_id=a.id))
 
     def _own_analysis(analysis_id):
@@ -267,6 +302,7 @@ def register_routes(app):
         own_gemini = "gemini" in api_keys.status(current_user.id) and api_keys.status(current_user.id)["gemini"]["saved"]
         return render_template(
             "report.html", a=a, A=A, listing=listing, lang=lang, beat=beat,
+            price_page=catalogue.page_for(ps.get("model"), ps.get("model_number"), a.title, A.get("device_category")),
             facts=facts_rows(ps, claims, A.get("device_category") or "phone"),
             price=price_vm(ps, A.get("price_analysis") or {}),
             followups=[f.result for f in fups],
@@ -299,6 +335,8 @@ def register_routes(app):
         except chat.ChatCapped as e:
             return jsonify({"error": str(e), "capped": True, "remaining": 0,
                             "keys_url": url_for("account") + "#keys"}), 429
+        except chat.ChatUnavailable as e:
+            return jsonify({"error": str(e), "unavailable": True}), 503
         if "gemini" in keys:
             api_keys.mark_used(current_user.id, ["gemini"], a.id)
         return jsonify(out)
@@ -396,15 +434,22 @@ def register_routes(app):
 
     @app.get("/prices")
     def price_guide():
-        return render_template("prices.html", models=prices.guide_index())
+        """The cards come first: one for every model BEAT has checked a listing for, with a search above them."""
+        return render_template("prices_home.html", **catalogue.home_page())
 
-    @app.get("/prices/<key>")
-    def price_model(key):
-        key = key.lower()[:80]
-        st = prices.stats(key)
-        if not st["n"] and not st["n_new"]:
+    @app.get("/prices/<line_id>")
+    def price_line(line_id):
+        ctx = catalogue.line_page(line_id[:80])
+        if ctx is None:                      # a model nobody has checked a listing for has no page
             abort(404)
-        return render_template("price_model.html", st=st, series=prices.series(key), rows=prices.listings(key))
+        return render_template("prices_line.html", **ctx)
+
+    @app.get("/prices/<line_id>/<variant_id>")
+    def price_variant(line_id, variant_id):
+        ctx = catalogue.variant_page(line_id[:80], variant_id.lower()[:40])
+        if ctx is None:
+            abort(404)
+        return render_template("prices_variant.html", **ctx)
 
     @app.get("/accuracy")
     def accuracy():

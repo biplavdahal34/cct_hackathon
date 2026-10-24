@@ -641,20 +641,103 @@ details.lim .dots { margin-top: 12px; } details.lim .dots li { color: var(--mute
 @media (max-width: 640px) { .radios { grid-template-columns: 1fr; } .copyblock { grid-template-columns: 1fr; } .trow { grid-template-columns: 1fr; gap: 2px; } }
 
 /* price guide pages */
-.plist { border: 1px solid var(--border); border-radius: var(--r); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
-.prow { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; gap: 16px; align-items: center; padding: 13px 18px; border-bottom: 1px solid var(--hair); color: var(--text); }
-.prow:last-child { border-bottom: none; } .prow:hover { background: var(--panel-2); text-decoration: none; }
-.prow .pl { font-weight: 550; } .prow .pm { font-family: var(--display); font-size: 18px; font-weight: 450; font-variant-numeric: tabular-nums; }
-.prow .pn, .prow .pt { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .trend-down { color: var(--ok); } .trend-up { color: var(--warn); }
-.pstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--border); border-radius: var(--r); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; margin: 18px 0; }
-.chart { width: 100%; height: auto; display: block; margin-top: 8px; }
-.chart .ln { fill: none; stroke: var(--accent); stroke-width: 2; }
-.chart .dot { fill: var(--accent); }
-.chart .ax { stroke: var(--border); stroke-width: 1; }
-.chart text { font: 11px var(--sans); fill: var(--muted); }
 .caltable { width: 100%; border-collapse: collapse; font-size: 14px; }
 .caltable th, .caltable td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--hair); }
 .caltable th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 .caltable td.n { font-variant-numeric: tabular-nums; }
-@media (max-width: 640px) { .prow { grid-template-columns: minmax(0,1fr) auto; } .prow .pn, .prow .pt { display: none; } .pstats { grid-template-columns: 1fr 1fr; } }
+
+
+/* ═══ laptop price pages: grid of lines, line page, model page, the finder ═══ */
+.crumbs { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+.crumbs a { color: var(--muted); }
+.pg-head { margin-bottom: 20px; }
+.eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 17px; line-height: 1.55; color: var(--muted); max-width: 52ch; margin: 10px 0 0; }
+.sec { font-family: var(--display); font-size: 22px; font-weight: 450; letter-spacing: -.01em; margin: 38px 0 14px; }
+.prose p { max-width: 68ch; font-size: 15.5px; line-height: 1.7; margin: 0 0 12px; }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r); background: var(--panel); padding: 4px 14px; }
+.card .tbl-wrap { border: 0; padding: 0; background: none; }
+.tbl-wrap .caltable td { vertical-align: top; }
+div.comp:hover { color: var(--text); }
+
+/* the grid of lines: picture on top, name below, nothing else */
+.line-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; }
+.line-card { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; color: var(--text); transition: transform .15s ease, box-shadow .15s ease; }
+.line-card:hover { text-decoration: none; transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.line-card:focus-visible, .latest-tile:focus-visible, .mchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* a picture area keeps its shape whatever it holds: the picture or outline is fitted inside, never allowed to stretch it */
+.line-art, .tile-art, .hero-art { position: relative; overflow: hidden; background: var(--panel-2); color: var(--muted); }
+.line-art { aspect-ratio: 4 / 3; }
+.line-art img, .line-art svg, .tile-art img, .tile-art svg, .hero-art img, .hero-art svg { position: absolute; inset: 16px; width: calc(100% - 32px); height: calc(100% - 32px); object-fit: contain; display: block; }
+.line-name { padding: 14px 18px 18px; font-family: var(--display); font-size: 20px; font-weight: 450; letter-spacing: -.01em; }
+
+/* the finder: loud on purpose, so nobody takes the line page for a price for every laptop */
+.finder { margin: 0 0 30px; max-width: 700px; }
+.finder-label { display: block; margin-bottom: 8px; font-family: var(--display); font-size: 24px; font-weight: 450; letter-spacing: -.01em; }
+.finder-row { position: relative; }
+.finder-box { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 2px solid var(--accent); border-radius: 14px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); }
+.finder-box:focus-within { box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow); }
+.finder-ico { width: 26px; height: 26px; color: var(--accent); flex: none; }
+.finder-input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 17px; padding: 9px 0; }
+.finder-input::placeholder { color: var(--faint); }
+.finder-help { margin: 10px 2px 0; font-size: 14px; color: var(--muted); max-width: 62ch; }
+.finder-panel { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 8px); display: flex; flex-wrap: wrap; gap: 10px; padding: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); max-height: 60vh; overflow-y: auto; }
+.finder-panel[hidden] { display: none; }
+.finder-empty, .finder-none { margin: 0; width: 100%; font-size: 14px; color: var(--muted); }
+.finder-empty[hidden] { display: none; }
+.finder-fallback { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.mchip { display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 7px 7px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 999px; color: var(--text); }
+.mchip:hover { border-color: var(--accent); text-decoration: none; background: var(--accent-soft); }
+.mchip[hidden] { display: none; }
+.mart { width: 54px; height: 40px; border-radius: 999px; background: var(--panel); display: grid; place-items: center; overflow: hidden; color: var(--muted); flex: none; }
+.mart svg { width: 36px; height: auto; } .mart img { width: 100%; height: 100%; object-fit: cover; }
+.mtxt { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.mtxt b { font-size: 14.5px; font-weight: 600; } .mtxt small { font-size: 12px; color: var(--muted); }
+.mtxt .mstat { color: var(--accent); }
+
+/* line and model page */
+.line-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: center; margin-bottom: 8px; }
+.line-title { font-family: var(--display); font-size: clamp(34px, 5vw, 48px); font-weight: 400; letter-spacing: -.03em; line-height: 1.05; margin: 0; }
+.num-tag { display: inline-block; vertical-align: middle; font: 600 13px var(--sans); letter-spacing: .04em; color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); padding: 3px 10px; border-radius: 999px; margin-left: 6px; }
+.hero-art { aspect-ratio: 16 / 10; border-radius: var(--r-lg); border: 1px solid var(--border); }
+.hero-art img, .hero-art svg { inset: 22px; width: calc(100% - 44px); height: calc(100% - 44px); }
+.draft { display: flex; gap: 10px; align-items: baseline; margin-top: 16px; padding: 10px 14px; border-radius: var(--r-sm); background: var(--panel-2); color: var(--muted); font-size: 13.5px; line-height: 1.5; max-width: 62ch; }
+.draft .pill { flex: none; }
+.specs { margin: 16px 0 0; display: grid; gap: 8px; }
+.specs div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; font-size: 14.5px; }
+.specs dt { color: var(--muted); } .specs dd { margin: 0; font-weight: 500; }
+.latest { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.latest-tile { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; color: var(--text); }
+a.latest-tile:hover { text-decoration: none; border-color: var(--accent); }
+.tile-art { aspect-ratio: 4 / 3; }
+.tile-txt { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px 14px; }
+.tile-txt b { font-size: 15px; } .tile-txt small { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+
+/* the price block: the number, and what stands behind it */
+.est { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 22px; align-items: end; }
+.est small { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.est .price-big { display: block; font-size: clamp(34px, 5vw, 46px); }
+.est-sub { display: block; margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+.est-side { display: grid; gap: 12px; } .est-side b { font-size: 16px; font-weight: 600; }
+.credit { margin: 8px 0 0; font-size: 12px; color: var(--faint); } .credit a { color: var(--muted); }
+
+/* the "too few listings" notice */
+.notice { border: 1px solid var(--warn); border-left-width: 4px; background: var(--warn-bg); border-radius: var(--r-sm); padding: 14px 16px; }
+.notice b { display: block; font-size: 15.5px; margin-bottom: 4px; }
+.notice p { margin: 0; font-size: 14.5px; line-height: 1.6; max-width: 70ch; }
+
+@media (max-width: 760px) {
+  .line-hero { grid-template-columns: 1fr; }
+  .hero-art { aspect-ratio: 16 / 8; }
+  .hero-art img, .hero-art svg { inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); }
+  .latest { gap: 10px; }
+  .tile-txt { padding: 10px 12px 12px; }
+  .finder-label { font-size: 21px; }
+  .est { grid-template-columns: 1fr; }
+  .finder-input { font-size: 16px; }
+  .finder-box .btn { padding-left: 14px; padding-right: 14px; }
+  .line-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .line-name { font-size: 17px; padding: 12px 14px 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .line-card { transition: none; } .line-card:hover { transform: none; } }

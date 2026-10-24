@@ -7,8 +7,8 @@ Two feeds write price observations:
 One row per listing per day, keyed by the site's own listing id, so a listing
 that stays up for a month counts once in a 30-day median.
 
-Reads: stats(model_key) for the report's "% off new" and trend line, and the
-public price guide pages (/prices)."""
+Reads: stats(model_key) for the report's "% off new" and trend line. The public price pages
+(/prices) are built by catalogue.py from the same observations."""
 import os
 import re
 import time
@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func
 
 from extensions import db
+from knowledge import products
 from models import PriceObservation
 
 # models worth tracking in Nepal's used market; the analyses add more over time
@@ -31,6 +32,8 @@ SEED_MODELS = [
     "MacBook Air M1", "MacBook Air M2", "MacBook Pro M1", "MacBook Pro M2", "MacBook Pro M3",
     "Acer Nitro 5", "Asus TUF", "Lenovo Legion 5", "Dell XPS 13", "HP Pavilion", "Lenovo IdeaPad",
 ]
+# the lines the laptop price pages are built around (knowledge/products.py), so the daily crawl gathers their listings
+SEED_MODELS += [q for _line in products.LINES.values() for q in _line["queries"] if q not in SEED_MODELS]
 
 _DROP = re.compile(r"\(.*?\)|\b\d+\s*/\s*\d+\s*(?:gb|tb)?\b|\b\d+\s*(?:gb|tb|mah|hz|w|inch|\")\b"
                    r"|\b(ram|rom|storage|dual\s*sim|5g|4g|lte|new|used|like|brand|sealed|boxed|box|bill|warranty|"
@@ -207,45 +210,6 @@ def stats(key: str, days: int = 90) -> dict:
         "first_seen": dates[0] if dates else None, "last_seen": dates[-1] if dates else None,
         "days": days,
     }
-
-
-def series(key: str, days: int = 90) -> list:
-    """Weekly medians for the price-guide chart: [{week_start, median, n}]."""
-    today = date.today()
-    rows = PriceObservation.query.filter(PriceObservation.model_key == key,
-                                         PriceObservation.observed_on >= today - timedelta(days=days),
-                                         PriceObservation.condition != "brand_new").all()
-    buckets = {}
-    for r in rows:
-        wk = r.observed_on - timedelta(days=r.observed_on.weekday())
-        buckets.setdefault(wk, {}).setdefault(r.external_id, r.price)   # one price per listing per week
-    out = []
-    for wk in sorted(buckets):
-        xs = list(buckets[wk].values())
-        out.append({"week_start": wk, "median": _median(xs), "n": len(xs)})
-    return out
-
-
-def listings(key: str, days: int = 30, limit: int = 40) -> list:
-    rows = _latest_per_listing(key, date.today() - timedelta(days=days))
-    rows.sort(key=lambda r: (r.observed_on, r.id), reverse=True)
-    return rows[:limit]
-
-
-def guide_index(min_n: int = 3, days: int = 90) -> list:
-    """Models with enough data for a page, most data first."""
-    since = date.today() - timedelta(days=days)
-    q = (db.session.query(PriceObservation.model_key, func.count(func.distinct(PriceObservation.external_id)))
-         .filter(PriceObservation.observed_on >= since)
-         .group_by(PriceObservation.model_key).all())
-    out = []
-    for key, n in q:
-        if n >= min_n and key:
-            st = stats(key, days)
-            if st["median"] and st["n"] >= min_n:
-                out.append(st)
-    out.sort(key=lambda s: (-s["n"], s["label"]))
-    return out
 
 
 def prune(days: int = None) -> int:

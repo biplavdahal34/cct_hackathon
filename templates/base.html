@@ -21,7 +21,7 @@
     <nav class="nav" aria-label="Main">
       <a href="{{ url_for('home') }}" class="{{ 'on' if request.endpoint in ('home', 'analyze_url') }}">Home</a>
       <a href="{{ url_for('analyses') }}" class="{{ 'on' if request.endpoint in ('analyses', 'report') }}">Analyses</a>
-      <a href="{{ url_for('price_guide') }}" class="{{ 'on' if request.endpoint in ('price_guide', 'price_model') }}">Prices</a>
+      <a href="{{ url_for('price_guide') }}" class="{{ 'on' if request.endpoint in ('price_guide', 'price_line', 'price_variant') }}">Prices</a>
     </nav>
     <div class="right">
       <button class="iconbtn" type="button" data-theme-toggle title="Switch theme" aria-label="Switch theme">

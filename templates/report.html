@@ -285,8 +285,9 @@
       {% endif %}
       <p class="price-why">{{ pa.reasoning }}</p>
       {% if guide.median %}
-      <p class="price-meta" style="margin-top:12px">{{ ui('Price guide', lang) }}: <b>{{ guide.label }}</b> used, median <b>NPR {{ guide.median|fmt }}</b> across {{ guide.n }} listings in {{ guide.days }} days{% if guide.trend_pct is not none %}, <b class="{{ 't-ok' if guide.trend_pct < 0 else 't-warn' }}">{{ '+' if guide.trend_pct > 0 }}{{ guide.trend_pct }}%</b> over the last month{% endif %}. <a href="{{ url_for('price_model', key=guide.key) }}">See the guide →</a></p>
+      <p class="price-meta" style="margin-top:12px">{{ ui('Price guide', lang) }}: <b>{{ guide.label }}</b> used, median <b>NPR {{ guide.median|fmt }}</b> across {{ guide.n }} listings in {{ guide.days }} days{% if guide.trend_pct is not none %}, <b class="{{ 't-ok' if guide.trend_pct < 0 else 't-warn' }}">{{ '+' if guide.trend_pct > 0 }}{{ guide.trend_pct }}%</b> over the last month{% endif %}. </p>
       {% endif %}
+      {% if price_page %}<p class="price-meta" style="margin-top:10px"><a href="{{ price_page }}">See the price for this model →</a></p>{% endif %}
     </div>
     {% else %}
     <div class="card"><p class="none">This listing doesn't show a price, so there's nothing to compare.</p></div>
@@ -497,17 +498,17 @@
       <h3>{{ ui('Ask about this listing', lang) }}</h3>
       <span class="chatleft" id="chatLeft">{% if own_gemini %}Using your own Gemini key{% else %}{{ chat_remaining }} of {{ chat_cap }} free questions left today{% endif %}</span>
     </div>
-    <p class="none">Answers come only from this report. It won't talk about anything else, and it can't change the score.</p>
+    <p class="none">Ask about this listing, the device, the price, or what to check before you pay. It can't change the score.</p>
     <div class="chatlog" id="chatLog" aria-live="polite">
       {% for msg in chat_history %}
       <div class="bubble {{ 'me' if msg.role == 'user' else 'bot' }}{{ ' off' if msg.role != 'user' and msg.in_scope is sameas false }}">{{ msg.content }}</div>
       {% else %}
-      <div class="bubble bot hint">Try: “Is the battery claim believable?”, “What should I offer?”, “Which photo shows the crack?”</div>
+      <div class="bubble bot hint">Try: “Is the battery claim believable?”, “What should I offer?”, “What would the score be if only the price counted?”</div>
       {% endfor %}
     </div>
     <form class="chatform" id="chatForm">
       <label class="sr" for="chatQ">Your question</label>
-      <textarea class="input" id="chatQ" rows="2" maxlength="500" placeholder="Ask a question about this listing…" {{ 'disabled' if (chat_remaining == 0 and not own_gemini) }}></textarea>
+      <textarea class="input" id="chatQ" rows="2" maxlength="500" placeholder="Ask about this listing or the device…" {{ 'disabled' if (chat_remaining == 0 and not own_gemini) }}></textarea>
       <button class="btn primary" type="submit" id="chatGo" {{ 'disabled' if (chat_remaining == 0 and not own_gemini) }}>Ask</button>
     </form>
     <p class="chatnote none" id="chatNote" {{ '' if (chat_remaining == 0 and not own_gemini) else 'hidden' }}>You've used today's free questions for this listing. <a href="{{ url_for('account') }}#keys">Add your own free Gemini key</a> to keep asking.</p>

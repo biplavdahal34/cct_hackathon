@@ -168,6 +168,35 @@
     log.scrollTop = log.scrollHeight;
   }
 
+  /* price pages: the model finder. The server renders every chip; this only filters them and shows the panel. */
+  var finder = document.getElementById("finder");
+  if (finder) {
+    var fq = document.getElementById("finderQ"), fpanel = document.getElementById("finderPanel"), fgo = document.getElementById("finderGo");
+    var fchips = [].slice.call(fpanel.querySelectorAll(".mchip")), fempty = fpanel.querySelector(".finder-empty");
+    var fnorm = function (s) { return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); };
+    var fopen = function (on) { fpanel.hidden = !on; fq.setAttribute("aria-expanded", on ? "true" : "false"); };
+    var ffilter = function () {
+      var words = fnorm(fq.value).split(" ").filter(Boolean), shown = 0;
+      fchips.forEach(function (c) {
+        var ok = words.every(function (w) { return c.dataset.text.indexOf(w) !== -1; });
+        c.hidden = !ok; if (ok) shown++;
+      });
+      if (fempty) fempty.hidden = !(fchips.length && shown === 0);
+    };
+    fq.addEventListener("focus", function () { ffilter(); fopen(true); });
+    fq.addEventListener("input", function () { ffilter(); fopen(true); });
+    fgo.addEventListener("click", function () { fq.focus(); ffilter(); fopen(true); });
+    fq.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") fopen(false);
+      if (e.key === "Enter") {
+        e.preventDefault();
+        var first = fchips.filter(function (c) { return !c.hidden; })[0];
+        if (first) window.location = first.href;
+      }
+    });
+    document.addEventListener("click", function (e) { if (!finder.contains(e.target)) fopen(false); });
+  }
+
   /* report: tabs with hash deep-links (/report/5#price) */
   var bar = document.querySelector("#result .tabs");
   if (bar) {

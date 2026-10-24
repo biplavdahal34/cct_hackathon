@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What changed in BEAT</title>
+<meta name="description" content="Illustrated record of the second build session (Python scoring, knowledge tables, listing memory, price index, assistant, proof round, outcomes, Nepali) and the QA pass that followed.">
+<style>
+  /* Layout: one reading column, figures in paper panels, then/now pairs side by side. BEAT's own tokens and fonts. */
+  @font-face { font-family: "Inter"; font-weight: 100 900; font-display: swap; src: url("../static/fonts/inter-latin-wght.woff2") format("woff2"); }
+  @font-face { font-family: "Bricolage Grotesque"; font-weight: 200 800; font-display: swap; src: url("../static/fonts/bricolage-grotesque-latin-wght.woff2") format("woff2"); }
+  @font-face { font-family: "Instrument Serif"; font-style: italic; font-weight: 400; font-display: swap; src: url("../static/fonts/instrument-serif-latin-400-italic.woff2") format("woff2"); }
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --panel2: #f3f0ea; --border: #e3dfd6; --hair: #ece8e0; --fg: #1b1a17; --muted: #6d685f; --faint: #9a958b;
+    --accent: #1e7a4e; --accent-soft: #e4f1e9; --warn: #a8701a; --warn-soft: #f7ecda; --bad: #b3291f; --bad-soft: #f8e4e2;
+    --code-bg: #efece5; --ink: #1b1a17;
+    --sans: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --display: "Bricolage Grotesque", "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif-i: "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151412; --panel: #1e1d1a; --panel2: #262420; --border: #302d28; --hair: #2a2823; --fg: #ece8df; --muted: #9f998e; --faint: #726c62;
+      --accent: #5cc08c; --accent-soft: #1d3327; --warn: #e5a04a; --warn-soft: #3a2a12; --bad: #f08a82; --bad-soft: #3d1c1a;
+      --code-bg: #26241f; --ink: #ece8df; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151412; --panel: #1e1d1a; --panel2: #262420; --border: #302d28; --hair: #2a2823; --fg: #ece8df; --muted: #9f998e; --faint: #726c62;
+    --accent: #5cc08c; --accent-soft: #1d3327; --warn: #e5a04a; --warn-soft: #3a2a12; --bad: #f08a82; --bad-soft: #3d1c1a;
+    --code-bg: #26241f; --ink: #ece8df; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 var(--sans); padding-block: 0 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header.top { padding: 56px 0 28px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+  .kicker { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 12px; }
+  h1 { font: 500 46px/1.06 var(--display); letter-spacing: -.02em; margin: 0 0 14px; text-wrap: balance; }
+  h1 em { font: italic 400 1.08em var(--serif-i); color: var(--accent); letter-spacing: 0; }
+  .lede { font-size: 18px; color: var(--muted); max-width: 64ch; margin: 0 0 18px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+  .meta a { color: var(--accent); text-decoration: none; border-bottom: 1px solid currentColor; }
+  h2 { font: 500 30px/1.15 var(--display); letter-spacing: -.015em; margin: 56px 0 12px; text-wrap: balance; }
+  h2 small { display: block; font: 600 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  h3 { font-size: 17px; font-weight: 650; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  ul, ol { padding-left: 22px; margin: 0 0 16px; max-width: 70ch; }
+  li { margin-bottom: 6px; } li::marker { color: var(--muted); }
+  a { color: var(--accent); }
+  code { font: 13.5px/1.5 var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 0 0 14px; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 26px 0 8px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .stat b { display: block; font: 500 28px/1.1 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .fig { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 12px; margin: 18px 0 22px; }
+  .fig { overflow-x: auto; }
+  .fig svg { width: 100%; min-width: 640px; height: auto; display: block; }
+  .fig figcaption, .fig .cap { font-size: 13.5px; color: var(--muted); margin: 10px 0 0; max-width: none; }
+  .fig figcaption b { color: var(--fg); font-weight: 600; }
+  figure { margin: 0; }
+  .svg text { font-family: var(--sans); font-size: 12px; fill: currentColor; }
+  .svg .t-sm { font-size: 11px; fill: var(--muted); }
+  .svg .t-b { font-weight: 650; }
+  .svg .t-acc { fill: var(--accent); font-weight: 650; }
+  .svg .t-bad { fill: var(--bad); font-weight: 650; }
+  .svg .t-mono { font-family: var(--mono); font-size: 11px; }
+  .svg .box { fill: var(--panel2); stroke: var(--border); stroke-width: 1; }
+  .svg .box-acc { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+  .svg .box-bad { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1; }
+  .svg .box-warn { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1; }
+  .svg .ln { stroke: currentColor; stroke-width: 1.2; fill: none; }
+  .svg .ln-acc { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+  .svg .ln-bad { stroke: var(--bad); stroke-width: 1.4; fill: none; }
+  .svg .ln-dash { stroke: var(--muted); stroke-width: 1; fill: none; stroke-dasharray: 4 3; }
+  .svg .band-g { fill: var(--accent); opacity: .16; } .svg .band-y { fill: var(--warn); opacity: .16; } .svg .band-r { fill: var(--bad); opacity: .16; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 22px; }
+  .pair > div { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  .pair h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .pair h4.now { color: var(--accent); }
+  .pair p, .pair ul { max-width: none; font-size: 14.5px; }
+  .pair pre { font-size: 12.5px; }
+  .list { list-style: none; padding: 0; margin: 0; }
+  .list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--hair); font-size: 14px; }
+  .list li:last-child { border-bottom: none; }
+  .list li span:last-child { color: var(--muted); white-space: nowrap; }
+  .list .x { text-decoration: line-through; color: var(--muted); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 22px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; min-width: 0; }
+  .card h4 { margin: 0 0 4px; font-size: 16px; }
+  .card .file { font: 12px var(--mono); color: var(--muted); margin-bottom: 10px; }
+  .card p, .card ul { font-size: 14.5px; max-width: none; }
+  .card ul { padding-left: 18px; margin-bottom: 0; }
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 0 0 18px; }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .callout.bad { border-color: var(--bad); background: var(--bad-soft); }
+  .callout p:last-child { margin-bottom: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 20px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tbl { overflow-x: auto; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); vertical-align: middle; }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.off { background: var(--code-bg); color: var(--muted); }
+  .mock { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+  .mock .mh { font-weight: 650; display: flex; justify-content: space-between; gap: 10px; }
+  .mock .mh .n { font-variant-numeric: tabular-nums; }
+  .mock .r { color: var(--bad); } .mock .g { color: var(--accent); } .mock .m { color: var(--muted); }
+  .mock ul { margin: 6px 0 0; padding-left: 18px; }
+  .mock .kv { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--hair); padding: 6px 0; }
+  .mock .kv span:first-child { color: var(--muted); }
+  .toc { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; margin: 0 0 8px; }
+  .toc ol { columns: 2; column-gap: 28px; margin: 0; padding-left: 20px; max-width: none; }
+  .toc li { break-inside: avoid; margin-bottom: 4px; } .toc a { text-decoration: none; } .toc a:hover { text-decoration: underline; }
+  .toggle { position: fixed; top: 14px; right: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--fg); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .small { font-size: 13.5px; color: var(--muted); }
+  @media (max-width: 680px) {
+    h1 { font-size: 34px; } h2 { font-size: 25px; }
+    .pair, .cards { grid-template-columns: 1fr; }
+    .toc ol { columns: 1; }
+    body { padding-bottom: 64px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  @media print { .toggle { display: none; } .fig, .card, .pair > div { break-inside: avoid; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<button class="toggle" type="button" data-theme-toggle aria-label="Switch light or dark theme">Theme</button>
+<div class="wrap">
+
+<header class="top">
+  <p class="kicker">BEAT · what changed · 23–24 October 2026</p>
+  <h1>The report stopped being a model's <em>opinion</em></h1>
+  <p class="lede">Two sessions of work, in pictures. The first built the Python layer that now computes the score, remembers listings, indexes prices and answers questions. The second checked every page at desktop and phone width and fixed what the screenshots showed.</p>
+  <div class="meta">
+    <span>Commit <a href="https://github.com/biplavdahal34/cct_hackathon/commit/6b3e74c11e86250c3e91f59dca92fd1d8d5b9ee3"><code>6b3e74c</code></a> on <code>redesign-and-byok</code></span>
+    <span>Tag <code>checkpoint-2026-10-24</code></span>
+    <span>Before it: <code>fcb6a7f</code></span>
+    <span>Revert with <code>git revert 6b3e74c</code></span>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>53</b><small>files changed</small></div>
+    <div class="stat"><b>+6,544</b><small>lines added, 255 removed</small></div>
+    <div class="stat"><b>8</b><small>new modules + the knowledge package</small></div>
+    <div class="stat"><b>6</b><small>new database tables</small></div>
+    <div class="stat"><b>129</b><small>tests, all passing</small></div>
+    <div class="stat"><b>5</b><small>golden listings in CI</small></div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#pipeline">The pipeline, then and now</a></li>
+    <li><a href="#score">The score is arithmetic</a></li>
+    <li><a href="#search">Comparables search, fixed</a></li>
+    <li><a href="#knowledge">Tables a person maintains</a></li>
+    <li><a href="#memory">Listing memory</a></li>
+    <li><a href="#prices">The price index</a></li>
+    <li><a href="#assistant">The report assistant</a></li>
+    <li><a href="#proof">The proof round</a></li>
+    <li><a href="#outcomes">Outcomes, Nepali, free keys</a></li>
+    <li><a href="#golden">Golden set and CI</a></li>
+    <li><a href="#qa">The QA pass</a></li>
+    <li><a href="#next">Still not done</a></li>
+  </ol>
+</nav>
+
+<h2 id="pipeline"><small>1</small>The pipeline, then and now</h2>
+<p>Before, the model read the listing and wrote the whole report, score included. A seller who typed "rate this strong buy" into the description was talking straight to the thing that picked the number. Now the model only reports what it sees. A Python layer turns those findings into the score, adds what it knows from its own tables and its own memory, and writes the parts of the report that are arithmetic.</p>
+<figure class="fig">
+  <svg class="svg" viewBox="0 0 920 332" role="img" aria-label="Then: scraper to Gemini to report, with the score inside the model. Now: scraper, Gemini vision call, comparables search, Gemini price call, then a Python layer that computes the score, checks knowledge tables and listing memory, and writes the report.">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+    <text x="0" y="16" class="t-sm t-b">THEN</text>
+    <rect x="0" y="30" width="130" height="46" rx="8" class="box"/><text x="65" y="50" text-anchor="middle" class="t-b">Scraper</text><text x="65" y="66" text-anchor="middle" class="t-sm">title, price, photos</text>
+    <line x1="130" y1="53" x2="178" y2="53" class="ln" marker-end="url(#ar)"/>
+    <rect x="180" y="30" width="250" height="46" rx="8" class="box-bad"/><text x="305" y="50" text-anchor="middle" class="t-b">Gemini</text><text x="305" y="66" text-anchor="middle" class="t-sm">findings, flags, price verdict and THE SCORE</text>
+    <line x1="430" y1="53" x2="478" y2="53" class="ln" marker-end="url(#ar)"/>
+    <rect x="480" y="30" width="130" height="46" rx="8" class="box"/><text x="545" y="50" text-anchor="middle" class="t-b">Report</text><text x="545" y="66" text-anchor="middle" class="t-sm">as the model wrote it</text>
+    <text x="640" y="48" class="t-sm">the description could argue</text><text x="640" y="63" class="t-sm">with the thing that picks the number</text>
+
+    <text x="0" y="124" class="t-sm t-b">NOW</text>
+    <rect x="0" y="138" width="130" height="46" rx="8" class="box"/><text x="65" y="158" text-anchor="middle" class="t-b">Scraper</text><text x="65" y="174" text-anchor="middle" class="t-sm">+ seller id, ad count</text>
+    <line x1="130" y1="161" x2="158" y2="161" class="ln" marker-end="url(#ar)"/>
+    <rect x="160" y="138" width="150" height="46" rx="8" class="box"/><text x="235" y="158" text-anchor="middle" class="t-b">Gemini · vision</text><text x="235" y="174" text-anchor="middle" class="t-sm">defects, claims, model no.</text>
+    <line x1="310" y1="161" x2="338" y2="161" class="ln" marker-end="url(#ar)"/>
+    <rect x="340" y="138" width="150" height="46" rx="8" class="box"/><text x="415" y="158" text-anchor="middle" class="t-b">Search API</text><text x="415" y="174" text-anchor="middle" class="t-sm">12 live comparables</text>
+    <line x1="490" y1="161" x2="518" y2="161" class="ln" marker-end="url(#ar)"/>
+    <rect x="520" y="138" width="150" height="46" rx="8" class="box"/><text x="595" y="158" text-anchor="middle" class="t-b">Gemini · text</text><text x="595" y="174" text-anchor="middle" class="t-sm">fair range, price verdict</text>
+    <line x1="670" y1="161" x2="698" y2="161" class="ln" marker-end="url(#ar)"/>
+    <rect x="700" y="138" width="120" height="46" rx="8" class="box"/><text x="760" y="158" text-anchor="middle" class="t-sm">suggested rating</text><text x="760" y="174" text-anchor="middle" class="t-sm">advisory only</text>
+
+    <path d="M760,184 L760,210 L460,210 L460,224" class="ln-acc" marker-end="url(#arg)"/>
+    <rect x="0" y="226" width="920" height="64" rx="10" class="box-acc"/>
+    <text x="16" y="248" class="t-acc">Python layer (no model)</text>
+    <text x="16" y="266" class="t-sm">scoring.py · fixed weights, group caps, hard caps, ledger</text>
+    <text x="16" y="281" class="t-sm">model's rating: a nudge of at most ±8</text>
+    <text x="330" y="248" class="t-b">knowledge/</text><text x="330" y="266" class="t-sm">model numbers · inspection steps</text><text x="330" y="281" class="t-sm">repair costs · scam patterns · NTA</text>
+    <text x="560" y="248" class="t-b">snapshots.py · prices.py</text><text x="560" y="266" class="t-sm">listing history, photo reuse,</text><text x="560" y="281" class="t-sm">seller volume, price index</text>
+    <text x="770" y="248" class="t-b">negotiation.py</text><text x="770" y="266" class="t-sm">opening offer,</text><text x="770" y="281" class="t-sm">message to send</text>
+    <line x1="460" y1="290" x2="460" y2="312" class="ln-acc" marker-end="url(#arg)"/>
+    <text x="474" y="309" class="t-b">Report</text><text x="528" y="309" class="t-sm">score, ledger, history, proof round, assistant, outcomes, Nepali</text>
+  </svg>
+  <figcaption><b>The model moved one step left.</b> It still reads photos and text, but the number on the report is computed after it, from its findings, with weights it never sees.</figcaption>
+</figure>
+
+<h2 id="score"><small>2</small>The score is arithmetic</h2>
+<p>Every report starts at 100. Each finding the model reports takes a fixed number of points, group by group, and each group has a floor so one kind of finding cannot sink the whole score. A few things are so serious that they cap the rating no matter what else is good. The model's own rating can move the result by at most 8 points, and the report says when it disagreed. The ledger under "How the 54 was counted" shows every line.</p>
+<figure class="fig">
+  <svg class="svg" viewBox="0 0 920 236" role="img" aria-label="A 0 to 100 scale with five rating bands. The iPhone 13 example starts at 100, loses 21 points across four findings, gains 4 for good signs, reaching 83, then is held at the Caution ceiling of 54 because its photos appeared in another seller's listing. The model's own suggestion, 82, is shown as a tick.">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <!-- bands: x = 40 + score*8.2 -->
+    <rect x="40" y="60" width="287" height="26" class="band-r"/>
+    <rect x="327" y="60" width="164" height="26" class="band-y"/>
+    <rect x="491" y="60" width="123" height="26" class="band-y"/>
+    <rect x="614" y="60" width="123" height="26" class="band-g"/>
+    <rect x="737" y="60" width="123" height="26" class="band-g"/>
+    <text x="183" y="51" text-anchor="middle" class="t-sm">Avoid 0–34</text>
+    <text x="409" y="51" text-anchor="middle" class="t-sm">Caution 35–54</text>
+    <text x="552" y="51" text-anchor="middle" class="t-sm">Consider 55–69</text>
+    <text x="675" y="51" text-anchor="middle" class="t-sm">Buy worthy 70–84</text>
+    <text x="798" y="51" text-anchor="middle" class="t-sm">Strong buy 85–100</text>
+    <line x1="40" y1="86" x2="860" y2="86" class="ln"/>
+    <g class="t-sm"><text x="40" y="102" text-anchor="middle">0</text><text x="327" y="102" text-anchor="middle">35</text><text x="491" y="102" text-anchor="middle">55</text><text x="614" y="102" text-anchor="middle">70</text><text x="737" y="102" text-anchor="middle">85</text><text x="860" y="102" text-anchor="middle">100</text></g>
+    <!-- walk: 100 -> 79 (lost 21) -> 83 (gained 4) -> cap 54 -->
+    <line x1="860" y1="130" x2="688" y2="130" class="ln-bad" marker-end="url(#ar2)"/>
+    <text x="860" y="122" text-anchor="end" class="t-b">start 100</text>
+    <text x="774" y="146" text-anchor="middle" class="t-bad">−21 across 4 findings</text>
+    <line x1="688" y1="160" x2="720" y2="160" class="ln-acc" marker-end="url(#ar2)"/>
+    <text x="704" y="176" text-anchor="middle" class="t-acc">+4 good signs → 83</text>
+    <line x1="720" y1="190" x2="483" y2="190" class="ln-dash"/>
+    <line x1="483" y1="190" x2="483" y2="86" class="ln-dash"/>
+    <text x="40" y="206" class="t-sm">held at the Caution ceiling, 54: the same photos appeared in another seller's listing</text>
+    <circle cx="483" cy="73" r="7" fill="var(--warn)" stroke="var(--panel)" stroke-width="2"/>
+    <text x="483" y="32" text-anchor="middle" class="t-b">final 54 · Caution</text>
+    <line x1="712" y1="60" x2="712" y2="86" class="ln" stroke-width="2"/>
+    <text x="40" y="228" class="t-sm">model's own suggestion: 82, “buy worthy”, shown on the report as a disagreement (tick at 82)</text>
+    <line x1="712" y1="92" x2="712" y2="214" class="ln-dash"/>
+  </svg>
+  <figcaption><b>The iPhone 13 from the preview data.</b> The arithmetic would have landed at 83. The hard cap for reused photos holds it at 54, and the report says so in the first sentence of "Why this score".</figcaption>
+</figure>
+<div class="tbl"><table>
+  <thead><tr><th>Group</th><th>What counts</th><th>Per finding</th><th>Floor for the group</th></tr></thead>
+  <tbody>
+    <tr><td>Photos</td><td>severity × confidence of each defect; signs of a replaced part</td><td class="num">−1 to −18</td><td class="num">−45</td></tr>
+    <tr><td>Authenticity</td><td>stock or copied image; cannot confirm it is this device</td><td class="num">−6 / −2</td><td class="num">−18</td></tr>
+    <tr><td>Claims</td><td>condition tag vs photos; battery under 80 %; "not working"; no box</td><td class="num">−2 to −15</td><td class="num">−30</td></tr>
+    <tr><td>Coverage</td><td>too few photos; things the report could not verify</td><td class="num">−4 to −15</td><td class="num">−20</td></tr>
+    <tr><td>Evidence</td><td>battery health not stated; very short description; no box or bill</td><td class="num">−2 to −8</td><td class="num">−16</td></tr>
+    <tr><td>Model flags</td><td>each red flag the model raised; each green flag</td><td class="num">−4 / +2</td><td class="num">−20 / +8</td></tr>
+    <tr><td>Price</td><td>above the fair range; far below similar listings; below range (a plus)</td><td class="num">−8 / −15 / +4</td><td class="num">—</td></tr>
+    <tr><td>Scam patterns</td><td>from <code>knowledge/scams.py</code>, by severity</td><td class="num">−20 / −8 / −3</td><td class="num">−40 / −24 / −9</td></tr>
+    <tr><td>History</td><td>photo reuse, condition tag got better, replaced photos, dealer volume</td><td class="num">varies</td><td class="num">−25 / +6</td></tr>
+    <tr><td>Judgment</td><td>the model's overall read, 30 % of the gap, clamped</td><td class="num">±8</td><td class="num">±8</td></tr>
+  </tbody>
+</table></div>
+<p><b>Hard caps.</b> A severe defect clearly visible in a photo holds the rating at Consider with caution. A price far below similar listings holds it at Caution. A high-severity scam pattern holds it at Avoid or Caution, depending on the pattern. Photos that appeared in a different seller's listing hold it at Caution. The cap and its reason are printed in the summary.</p>
+<p class="small"><code>scoring.VERSION</code> is 3. It changes whenever a weight changes, and old reports keep the version they were scored with.</p>
+
+<h2 id="search"><small>3</small>Comparables search, fixed</h2>
+<p>The fair-price range comes from live listings on Hamrobazaar. The old request sent a <code>keyword</code> body that the site silently ignored, so "iPhone 13" came back as the newest listings of everything: bikes, land, sofas. The report's price check was built on those. The search now sends the exact body the site's own front end sends, and the rows come back with the fields the rest of the layer needs.</p>
+<div class="pair">
+  <div>
+    <h4>Then</h4>
+<pre><code>POST /api/products/search
+{"keyword": "iPhone 13"}</code></pre>
+    <ul class="list">
+      <li><span class="x">Honda Shine 125, 2019</span><span>NPR 185,000</span></li>
+      <li><span class="x">2 aana land, Bhaktapur</span><span>NPR 9,500,000</span></li>
+      <li><span class="x">Sofa set 3+1+1</span><span>NPR 22,000</span></li>
+      <li><span class="x">iPhone 13 back glass</span><span>NPR 4,000</span></li>
+    </ul>
+    <p class="small">The site returned its newest listings regardless of the query. The price verdict compared a phone with a motorbike.</p>
+  </div>
+  <div>
+    <h4 class="now">Now</h4>
+<pre><code>POST /api/products/search
+{"searchParams": {"searchValue": "iPhone 13"},
+ "filterParams": {…}, "pageNumber": 1,
+ "pageSize": 20, "deviceSource": "web"}</code></pre>
+    <ul class="list">
+      <li><span>iphone 13 128gb <span class="pill off">Used</span></span><span>NPR 42,000</span></li>
+      <li><span>iPhone 13 128gb <span class="pill off">Like new</span></span><span>NPR 48,500</span></li>
+      <li><span>iPhone 13 Pink 128gb <span class="pill off">Like new</span></span><span>NPR 49,000</span></li>
+      <li><span>Iphone 13 128 GB sealed <span class="pill off">Brand new</span></span><span>NPR 80,000</span></li>
+    </ul>
+    <p class="small">Condition codes (1 brand new, 2 like new, 3 used), category, seller id and ad count come with each row. Brand-new units are split out so the report can say "34 % below new".</p>
+  </div>
+</div>
+<p>Junk is removed in three stages: accessory categories are dropped, a keyword pre-filter catches batteries, chargers, cases, "for parts", LCDs and housings, and the second Gemini call separates the rest and the brand-new units. Sellers rarely write "Apple" in a title, so the query variants drop it.</p>
+
+<h2 id="knowledge"><small>4</small>Tables a person maintains</h2>
+<p>Facts about the local market do not belong in a prompt. They live in <code>knowledge/</code>, five small Python tables, each with a <code>REVIEWED</code> date that the report prints. Edit the table, not the model.</p>
+<div class="cards">
+  <div class="card">
+    <h4>Model numbers and regions</h4>
+    <div class="file">knowledge/models.py</div>
+    <p>Apple A-numbers, Apple part numbers and Samsung <code>SM-</code> suffixes, decoded into what matters here.</p>
+    <ul>
+      <li><code>A2482</code> is the United States iPhone 13; has a SIM tray plus eSIM.</li>
+      <li>US iPhones from the 14 onward have no SIM tray at all.</li>
+      <li>A <code>J/A</code> part number is a Japan unit: forced shutter sound.</li>
+      <li>US carrier Samsungs may be locked.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Inspection protocols</h4>
+    <div class="file">knowledge/protocols.py</div>
+    <p>Exact steps for the platform, each with its walk-away condition.</p>
+    <ul>
+      <li>iOS: Battery Health, Parts and Service History, Face ID and True Tone, Activation Lock sign-out.</li>
+      <li>Samsung: the <code>*#0*#</code> test menu and Download mode.</li>
+      <li>Mac: cycle count. Windows: <code>powercfg /batteryreport</code>.</li>
+      <li>Every phone: the NTA MDMS IMEI check, IMEI in three places, your own SIM in.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Repair costs in rupees</h4>
+    <div class="file">knowledge/repairs.py</div>
+    <p>Typical independent-shop quotes in Kathmandu by device class, so a finding becomes money in "Reasons to offer less" and in the opening offer.</p>
+    <ul>
+      <li>iPhone 12 / 13 class: screen NPR 12,000–35,000, battery 4,500–8,000, back glass 5,000–12,000.</li>
+      <li>Galaxy A / M / F class: screen 6,000–15,000, battery 2,500–4,500.</li>
+      <li>Estimates, dated. Check before relying on one.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Scam patterns</h4>
+    <div class="file">knowledge/scams.py</div>
+    <p>Local patterns in English and romanized Nepali ("advance paisa", "bidesh bata", "bhetna sakdina").</p>
+    <ul>
+      <li><span class="pill bad">high</span> account lock or bypass · IMEI not registered · money before you see the device</li>
+      <li><span class="pill warn">medium</span> will not meet · sold for someone abroad · "sealed" at a used price</li>
+      <li><span class="pill off">low</span> pressure to decide now · moves off the site · "personal use"</li>
+    </ul>
+  </div>
+</div>
+<p class="small"><code>knowledge/nepal.py</code> holds the NTA MDMS portal address and the three IMEI steps, so a change of portal or carrier policy is a one-line edit.</p>
+
+<h2 id="memory"><small>5</small>Listing memory</h2>
+<p>Every fetch stores a snapshot: price, condition tag, a hash of the description, a perceptual hash of each photo, and who the seller is. Nothing here needs a model. It needs memory.</p>
+<figure class="fig">
+  <svg class="svg" viewBox="0 0 920 300" role="img" aria-label="Left: a timeline of three snapshots of one listing showing a price cut and a condition tag that improved from Used to Like new. Right: two listings by different sellers whose photo hashes match within six bits, flagged as photo reuse.">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <text x="0" y="16" class="t-sm t-b">ONE LISTING OVER TIME</text>
+    <line x1="20" y1="70" x2="420" y2="70" class="ln"/>
+    <g><circle cx="40" cy="70" r="6" fill="currentColor"/><text x="40" y="52" text-anchor="middle" class="t-sm">3 Oct</text><text x="40" y="96" text-anchor="middle" class="t-b">NPR 55,000</text><text x="40" y="112" text-anchor="middle" class="t-sm">Used · 5 photos</text></g>
+    <g><circle cx="220" cy="70" r="6" fill="currentColor"/><text x="220" y="52" text-anchor="middle" class="t-sm">12 Oct</text><text x="220" y="96" text-anchor="middle" class="t-b">NPR 52,000</text><text x="220" y="112" text-anchor="middle" class="t-sm">Used · same photos</text></g>
+    <g><circle cx="400" cy="70" r="6" fill="var(--warn)"/><text x="400" y="52" text-anchor="middle" class="t-sm">23 Oct</text><text x="400" y="96" text-anchor="middle" class="t-b">NPR 52,000</text><text x="400" y="112" text-anchor="middle" class="t-sm">Like new · same photos</text></g>
+    <rect x="20" y="134" width="400" height="26" rx="6" class="box-acc"/><text x="30" y="151" class="t-sm">Price cut from NPR 55,000 to 52,000 since 3 Oct (5 % lower). The seller is motivated.</text>
+    <rect x="20" y="166" width="400" height="26" rx="6" class="box-warn"/><text x="30" y="183" class="t-sm">Condition tag changed from “Used” to “Like new”. A device does not get newer.</text>
+    <text x="20" y="214" class="t-sm">Also noticed: edited description · all photos replaced · 15+ active ads (a shop)</text>
+    <text x="20" y="230" class="t-sm">5+ listings from one seller in 90 days · three or more display names on one account</text>
+
+    <text x="500" y="16" class="t-sm t-b">THE SAME PHOTO, TWO SELLERS</text>
+    <rect x="500" y="34" width="190" height="88" rx="8" class="box"/>
+    <text x="512" y="54" class="t-b">iPhone 13 128GB</text><text x="512" y="70" class="t-sm">seller hamrobazaar:AC8E…</text>
+    <text x="512" y="92" class="t-mono">dHash 8×8 → 64 bits</text><text x="512" y="108" class="t-mono">1011 0010 … 0111</text>
+    <rect x="730" y="34" width="190" height="88" rx="8" class="box"/>
+    <text x="742" y="54" class="t-b">iPhone 13 128GB</text><text x="742" y="70" class="t-sm">seller hamrobazaar:OTHER…</text>
+    <text x="742" y="92" class="t-mono">dHash 8×8 → 64 bits</text><text x="742" y="108" class="t-mono">1011 0010 … 0101</text>
+    <line x1="690" y1="78" x2="728" y2="78" class="ln-bad" marker-end="url(#ar3)" marker-start="url(#ar3)"/>
+    <text x="709" y="138" text-anchor="middle" class="t-bad">2 bits apart (≤ 6 = same photo)</text>
+    <rect x="500" y="150" width="420" height="54" rx="6" class="box-bad"/>
+    <text x="512" y="167" class="t-sm">The same photos appeared in a listing by a different seller (23 Oct 2026).</text>
+    <text x="512" y="182" class="t-sm">One of the two is not selling their own device.</text>
+    <text x="512" y="197" class="t-sm t-b">→ a red flag, and the rating is held at Caution</text>
+    <text x="500" y="222" class="t-sm">Survives resizing and re-encoding (a WebP at 100×75 still matches).</text>
+    <text x="500" y="238" class="t-sm">The seller's own repost is a low signal: ask why the first one did not sell.</text>
+    <text x="0" y="272" class="t-sm">Tables: <tspan class="t-mono">listing_snapshot</tspan>, <tspan class="t-mono">image_hash</tspan>. Seller key: the site's own seller id, else the phone number. Dates are shown in Nepal time as plain days.</text>
+    <text x="0" y="290" class="t-sm">The first check of a listing has no history. The value grows with use.</text>
+  </svg>
+  <figcaption><b>What a second look can say.</b> Price cuts, a condition tag that got better, replaced photos, photos seen in another seller's listing, and how many listings this seller has posted.</figcaption>
+</figure>
+
+<h2 id="prices"><small>6</small>The price index</h2>
+<p>Two feeds write price observations: a daily crawl of a seed list of popular phones and laptops, and every analysis's comparables plus the listing itself. One row per listing per day, keyed by the site's own listing id, so a listing that stays up for a month counts once in a 30-day median. The public pages are at <code>/prices</code>.</p>
+<figure class="fig">
+  <svg class="svg" viewBox="0 0 920 210" role="img" aria-label="Two feeds, a daily crawler and each analysis, write to the price_observation table. From it come medians, the middle half, the brand-new price and a 30-day trend, which feed the public price pages and the report's percent-below-new line.">
+    <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <rect x="0" y="20" width="200" height="56" rx="8" class="box"/><text x="100" y="42" text-anchor="middle" class="t-b">flask crawl-prices</text><text x="100" y="58" text-anchor="middle" class="t-sm">daily · compose “crawler” service</text><text x="100" y="71" text-anchor="middle" class="t-sm">iPhone, Galaxy, Poco, MacBook…</text>
+    <rect x="0" y="110" width="200" height="56" rx="8" class="box"/><text x="100" y="132" text-anchor="middle" class="t-b">every analysis</text><text x="100" y="148" text-anchor="middle" class="t-sm">its comparables + the listing itself</text><text x="100" y="161" text-anchor="middle" class="t-sm">excluded titles stay out</text>
+    <line x1="200" y1="48" x2="268" y2="88" class="ln" marker-end="url(#ar4)"/>
+    <line x1="200" y1="138" x2="268" y2="100" class="ln" marker-end="url(#ar4)"/>
+    <rect x="270" y="62" width="190" height="64" rx="8" class="box-acc"/><text x="365" y="86" text-anchor="middle" class="t-acc">price_observation</text><text x="365" y="102" text-anchor="middle" class="t-sm">one row per listing per day</text><text x="365" y="116" text-anchor="middle" class="t-sm">model key groups spellings</text>
+    <line x1="460" y1="94" x2="508" y2="94" class="ln" marker-end="url(#ar4)"/>
+    <rect x="510" y="36" width="180" height="116" rx="8" class="box"/><text x="600" y="58" text-anchor="middle" class="t-b">stats(model)</text>
+    <text x="522" y="80" class="t-sm">median of used + like-new</text><text x="522" y="96" class="t-sm">middle half (p25–p75)</text><text x="522" y="112" class="t-sm">brand-new price, separately</text><text x="522" y="128" class="t-sm">30-day trend vs the 30 before</text><text x="522" y="144" class="t-sm">pruned after 400 days</text>
+    <line x1="690" y1="70" x2="738" y2="52" class="ln" marker-end="url(#ar4)"/>
+    <line x1="690" y1="118" x2="738" y2="136" class="ln" marker-end="url(#ar4)"/>
+    <rect x="740" y="28" width="180" height="46" rx="8" class="box"/><text x="830" y="48" text-anchor="middle" class="t-b">/prices · /prices/lenovo-loq</text><text x="830" y="64" text-anchor="middle" class="t-sm">public, no login</text>
+    <rect x="740" y="112" width="180" height="46" rx="8" class="box"/><text x="830" y="132" text-anchor="middle" class="t-b">the report</text><text x="830" y="148" text-anchor="middle" class="t-sm">“34 % below new”, trend line</text>
+    <text x="0" y="198" class="t-sm">Asking prices, not sale prices. The page says so: sellers in Nepal expect to negotiate, so the typical sale sits somewhat below these numbers.</text>
+  </svg>
+  <figcaption><b>Memory for prices.</b> The report's "below new" line and the public guide read from the same table.</figcaption>
+</figure>
+
+<h2 id="assistant"><small>7</small>The report assistant</h2>
+<p>A question box on every report. It answers anything to do with the listing, the device and the purchase around it: the report, the score and what-ifs on it ("what if only the price counted?"), negotiating, meeting and paying safely, and what was asked earlier in the conversation. It declines what has nothing to do with the purchase. The model never sees the database and has no tools. Python builds a context pack from the stored report, with the seller's phone number and profile link left out, and that is all it can quote.</p>
+<p>Being generous about scope is safe because the protection does not depend on the model refusing. Nothing it says can change the score. Angle brackets in buyer and seller text are escaped, so no one can forge a closing tag. Every answer passes a last check that removes links, email addresses, phone numbers and prompt dumps. A model call that fails, for example because the API's per-minute quota ran out, is reported as a failure and does not use up one of the buyer's questions. The filter on the left declines the usual disguises too: zero-width characters, look-alike letters, leetspeak and spaced-out words.</p>
+<figure class="fig">
+  <svg class="svg" viewBox="0 0 920 226" role="img" aria-label="A buyer's question first passes a Python guard that declines instruction-shaped text, then is wrapped as data with a context pack built from the report, sent to Gemini, which must answer in JSON with an in-scope flag; out-of-scope answers are replaced by a fixed sentence.">
+    <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <rect x="0" y="40" width="160" height="56" rx="8" class="box"/><text x="80" y="62" text-anchor="middle" class="t-b">buyer's question</text><text x="80" y="80" text-anchor="middle" class="t-sm">“Is the battery claim true?”</text>
+    <line x1="160" y1="68" x2="188" y2="68" class="ln" marker-end="url(#ar5)"/>
+    <rect x="190" y="30" width="180" height="76" rx="8" class="box-acc"/><text x="280" y="52" text-anchor="middle" class="t-acc">Python guard</text><text x="280" y="70" text-anchor="middle" class="t-sm">“ignore your instructions”,</text><text x="280" y="84" text-anchor="middle" class="t-sm">“developer mode”, “from now on”…</text><text x="280" y="98" text-anchor="middle" class="t-sm">declined before any model call</text>
+    <line x1="280" y1="106" x2="280" y2="150" class="ln-bad" marker-end="url(#ar5)"/>
+    <rect x="160" y="152" width="240" height="40" rx="6" class="box-bad"/><text x="280" y="169" text-anchor="middle" class="t-sm">“I take questions about this listing, not</text><text x="280" y="184" text-anchor="middle" class="t-sm">instructions. What would you like to know?”</text>
+    <line x1="370" y1="68" x2="408" y2="68" class="ln" marker-end="url(#ar5)"/>
+    <rect x="410" y="22" width="190" height="92" rx="8" class="box"/><text x="505" y="44" text-anchor="middle" class="t-b">context pack</text><text x="422" y="64" class="t-sm">score, ledger, findings, comps,</text><text x="422" y="78" class="t-sm">history, protocol steps</text><text x="422" y="92" class="t-sm">no seller phone, no profile link</text><text x="422" y="106" class="t-sm">the question is wrapped as data</text>
+    <line x1="600" y1="68" x2="648" y2="68" class="ln" marker-end="url(#ar5)"/>
+    <rect x="650" y="40" width="110" height="56" rx="8" class="box"/><text x="705" y="62" text-anchor="middle" class="t-b">Gemini</text><text x="705" y="80" text-anchor="middle" class="t-sm">JSON + in_scope</text>
+    <line x1="760" y1="68" x2="808" y2="68" class="ln" marker-end="url(#ar5)"/>
+    <rect x="810" y="30" width="110" height="76" rx="8" class="box-acc"/><text x="865" y="52" text-anchor="middle" class="t-acc">answer</text><text x="865" y="70" text-anchor="middle" class="t-sm">in scope: shown</text><text x="865" y="84" text-anchor="middle" class="t-sm">out of scope: fixed</text><text x="865" y="98" text-anchor="middle" class="t-sm">sentence instead</text>
+    <text x="0" y="214" class="t-sm">Metered like the rest of the shared key: 10 questions per listing per user per day, 300 a day for everyone. A saved Gemini key is exempt. Table: chat_message.</text>
+  </svg>
+  <figcaption><b>The buyer's text is a question, the seller's text is data.</b> Neither can change the score, which is computed elsewhere, and every answer is checked in Python before it is shown.</figcaption>
+</figure>
+
+<h2 id="proof"><small>8</small>The proof round</h2>
+<p>Photos cannot show battery health or a signed-out account. The report writes the message to send the seller, in English and Nepali, asking for the screenshots that matter for this device. The buyer uploads what comes back.</p>
+<figure class="fig">
+  <svg class="svg" viewBox="0 0 920 150" role="img" aria-label="The report lists which screenshots to ask for; the buyer uploads up to four of 6 MB; Gemini reads them against the claims; the score is recomputed; the images are discarded and 15-digit numbers removed from the findings.">
+    <defs><marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <rect x="0" y="30" width="170" height="60" rx="8" class="box"/><text x="85" y="52" text-anchor="middle" class="t-b">report says what to ask</text><text x="85" y="68" text-anchor="middle" class="t-sm">Battery Health, Parts and</text><text x="85" y="82" text-anchor="middle" class="t-sm">Service History, About…</text>
+    <line x1="170" y1="60" x2="208" y2="60" class="ln" marker-end="url(#ar6)"/>
+    <rect x="210" y="30" width="150" height="60" rx="8" class="box"/><text x="285" y="52" text-anchor="middle" class="t-b">buyer uploads</text><text x="285" y="68" text-anchor="middle" class="t-sm">up to 4 files, 6 MB each</text><text x="285" y="82" text-anchor="middle" class="t-sm">JPEG, PNG or WebP</text>
+    <line x1="360" y1="60" x2="398" y2="60" class="ln" marker-end="url(#ar6)"/>
+    <rect x="400" y="30" width="170" height="60" rx="8" class="box"/><text x="485" y="52" text-anchor="middle" class="t-b">Gemini reads them</text><text x="485" y="68" text-anchor="middle" class="t-sm">against the original report's</text><text x="485" y="82" text-anchor="middle" class="t-sm">claims: confirms or contradicts</text>
+    <line x1="570" y1="60" x2="608" y2="60" class="ln" marker-end="url(#ar6)"/>
+    <rect x="610" y="30" width="130" height="60" rx="8" class="box-acc"/><text x="675" y="52" text-anchor="middle" class="t-acc">re-scored</text><text x="675" y="68" text-anchor="middle" class="t-sm">signals go through</text><text x="675" y="82" text-anchor="middle" class="t-sm">the same ledger</text>
+    <line x1="740" y1="60" x2="778" y2="60" class="ln" marker-end="url(#ar6)"/>
+    <rect x="780" y="30" width="140" height="60" rx="8" class="box-bad"/><text x="850" y="52" text-anchor="middle" class="t-b">images discarded</text><text x="850" y="68" text-anchor="middle" class="t-sm">never written to disk;</text><text x="850" y="82" text-anchor="middle" class="t-sm">15-digit numbers scrubbed</text>
+    <text x="0" y="128" class="t-sm">About screens carry serial numbers and IMEIs, so only the findings are kept. Proof checks count as analyses under the hourly cap. nginx and Flask accept 26 MB bodies for this.</text>
+  </svg>
+  <figcaption><b>Table: followup.</b> The "Before you buy" tab shows the message, the upload box and the result.</figcaption>
+</figure>
+
+<h2 id="outcomes"><small>9</small>Outcomes, Nepali, free keys</h2>
+<div class="cards">
+  <div class="card">
+    <h4>Did you buy it?</h4>
+    <div class="file">outcomes.py · /accuracy</div>
+    <p>One answer per report after the buyer has decided: bought as described, bought and found problems, did not buy, it was a scam. Shown publicly only as totals.</p>
+    <ul>
+      <li>A <b>hit</b> is a positive verdict followed by a purchase as described, or a cautious verdict followed by problems or a scam.</li>
+      <li>"Did not buy" is neither.</li>
+      <li>Numbers appear only after <code>CALIBRATION_MIN_REPORTS</code> answers (20 by default).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>नेपालीमा</h4>
+    <div class="file">translate.py · analysis.report_ne_json</div>
+    <p>One translation per report, on request, cached on the row. Only human-readable text is translated.</p>
+    <ul>
+      <li>Keys, numbers, URLs and enum codes are copied back from the English report afterwards.</li>
+      <li>So ratings, severities and colours cannot be changed by the translation.</li>
+      <li>Report chrome (tab names, labels) switches through one <code>ui()</code> lookup.</li>
+    </ul>
+  </div>
+</div>
+<div class="callout warn">
+  <p><b>Free-tier keys only, and do not trust us fully.</b> Both places that accept a key say so. A dialog before the key is sent makes the user tick a box confirming it is a free-tier key with no billing attached. The server refuses a key without <code>key_ack=1</code>, so the dialog is a second gate, not the only one. A saved Gemini key is also used for that user's assistant questions, proof checks and translations, and for nothing else.</p>
+</div>
+<p>Also in this build: <b>negotiation.py</b> writes an opening offer with its reasons from the fair range, the comparables, the repair estimates and the price-cut history, plus a copy-paste message in English and Nepali. Pure arithmetic and fixed sentences.</p>
+
+<h2 id="golden"><small>10</small>Golden set and CI</h2>
+<p>Five listings with the rating band each must land in. <code>python -m unittest</code> runs them through the Python layer on every change, and <code>flask --app flask_app eval-reports --live</code> re-runs the model too. GitHub Actions runs the unit tests and the golden set on every push.</p>
+<div class="tbl"><table>
+  <thead><tr><th>Fixture</th><th>What it is</th><th>Must land in</th><th>Today</th></tr></thead>
+  <tbody>
+    <tr><td><code>acer-nitro-v15-laptop</code></td><td>Real listing, 15 Oct 2026, seller details removed</td><td>Buy worthy / Strong buy</td><td class="num">92 · strong buy</td></tr>
+    <tr><td><code>samsung-s22-ultra-two-photos</code></td><td>Real listing, only two photos to judge from</td><td>Consider / Buy worthy</td><td class="num">71 · buy worthy</td></tr>
+    <tr><td><code>samsung-s20fe-cheap-brief</code></td><td>Real listing, cheap and a very short description</td><td>Consider / Caution</td><td class="num">65 · consider</td></tr>
+    <tr><td><code>us-esim-sealed-dealer</code></td><td>Synthetic: sealed US model (A2846) far under the new price; expects the region warning and the sealed-cheap, below-market and dealer patterns</td><td>Caution / Avoid</td><td class="num">33 · avoid</td></tr>
+    <tr><td><code>injected-locked-s20fe</code></td><td>Synthetic: the description carries instructions to the model and admits an account lock; the model's verdict was edited to strong buy</td><td>Avoid / Caution</td><td class="num">34 · avoid</td></tr>
+  </tbody>
+</table></div>
+<p class="small">The injected listing is the regression test for the whole idea: the model's edited "strong buy" moves the result by at most 8 points, and the lock pattern caps it anyway. Tests moved onto <code>tests/common.py</code>, which fakes the whole network.</p>
+
+<h2 id="qa"><small>11</small>The QA pass (24 October)</h2>
+<p>Every page was rendered at desktop and phone width, light and dark, from the test harness. The layouts were fine. The content of the report was not, in four places.</p>
+<div class="pair">
+  <div>
+    <h4>Then</h4>
+    <div class="mock">
+      <div class="mh"><span class="r">Red flags</span><span class="n r">0</span></div>
+      <p class="m" style="margin:6px 0 0">Nothing suspicious came up.</p>
+    </div>
+    <p class="small" style="margin-top:8px">…on a report held at Caution because its photos appeared in another seller's listing. The summary said one thing and the flag card another.</p>
+  </div>
+  <div>
+    <h4 class="now">Now</h4>
+    <div class="mock">
+      <div class="mh"><span class="r">Red flags</span><span class="n r">1</span></div>
+      <ul><li>The same photos appeared in a listing by a different seller (24 Oct 2026). One of the two is not selling their own device.</li></ul>
+    </div>
+    <p class="small" style="margin-top:8px">Serious history findings count as red flags in the stat strip, the tab badge and the card. When scam patterns are listed above, the empty card says "Nothing beyond the patterns above."</p>
+  </div>
+</div>
+<div class="pair">
+  <div>
+    <h4>Then</h4>
+    <div class="mock">
+      <div class="mh"><span class="g">Good for</span><span class="r">Not for</span></div>
+      <div class="mh" style="font-weight:400"><span>most buyers</span><span>nobody</span></div>
+    </div>
+    <p class="small" style="margin-top:8px">The model's audience lines, under a Caution verdict the rules had overruled.</p>
+  </div>
+  <div>
+    <h4 class="now">Now</h4>
+    <div class="mock"><p class="m" style="margin:0">(not shown)</p></div>
+    <p class="small" style="margin-top:8px">Withdrawn whenever a hard cap applied, or the model disagreed and the final rating is Caution or Avoid.</p>
+  </div>
+</div>
+<div class="pair">
+  <div>
+    <h4>Then</h4>
+    <div class="mock">
+      <div class="kv"><span>A different seller</span><span>2026-10-23 19:14</span></div>
+      <div class="kv"><span>Steps reviewed</span><span>2026-10-24</span></div>
+      <div class="kv"><span>Posted</span><span>2026-10-20</span></div>
+    </div>
+    <p class="small" style="margin-top:8px">Raw timestamps, in UTC, for readers in Nepal.</p>
+  </div>
+  <div>
+    <h4 class="now">Now</h4>
+    <div class="mock">
+      <div class="kv"><span>A different seller</span><span>24 Oct 2026</span></div>
+      <div class="kv"><span>Steps reviewed</span><span>24 Oct 2026</span></div>
+      <div class="kv"><span>Posted</span><span>20 Oct 2026</span></div>
+    </div>
+    <p class="small" style="margin-top:8px">Snapshot dates are converted to Nepal time (UTC+5:45) and shown as days; timelines keep the hour. A <code>day</code> template filter formats the rest.</p>
+  </div>
+</div>
+<div class="pair">
+  <div>
+    <h4>Then</h4>
+    <div class="mock" style="overflow:hidden"><div class="kv" style="position:relative;padding-right:20px"><span>Listings BEAT has seen from this seller (90 days)</span><span style="position:absolute;right:-20px;top:6px">2</span></div></div>
+    <p class="small" style="margin-top:8px">On a phone the label could not shrink, so the number was pushed out of the card.</p>
+  </div>
+  <div>
+    <h4 class="now">Now</h4>
+    <div class="mock"><div class="kv"><span>Listings BEAT has seen from this seller (90 days)</span><span>2</span></div></div>
+    <p class="small" style="margin-top:8px">Labels in key–value rows wrap; values stay put. One CSS line.</p>
+  </div>
+</div>
+<div class="callout">
+  <p><b>A false alarm worth remembering.</b> The first set of phone screenshots showed every page cut off on the right. Headless Chrome refuses windows narrower than about 500 px, so those were 500 px layouts cropped to 390 px. Rendering through a 390 px iframe showed the real layout, which was fine. The method is written down in the project memory.</p>
+</div>
+<p>Three regression tests cover the fixes: reused photos show up as a red flag on the page and withdraw the audience lines, dates read as days, and snapshot labels are in Nepal time.</p>
+
+<h2 id="next"><small>12</small>Still not done</h2>
+<ul>
+  <li>Price alerts and "watch a listing" need a job queue.</li>
+  <li>Compare two or three listings side by side.</li>
+  <li>Public share links for a report.</li>
+  <li>The browser extension.</li>
+  <li>The package restructure into <code>beat/</code>. New modules were added flat to match the current tree.</li>
+  <li>Resend OTP still only delivers to one address until a sending domain is verified. Known, not a bug.</li>
+</ul>
+<p class="small">Companion document: <a href="session-guide.html">session-guide.html</a> has the design decisions and recipes from the first redesign session, with an addendum for this build. The README's "What makes the verdict more than a model's opinion" section is the short version of pages 1 to 6 here.</p>
+
+</div>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.querySelector("[data-theme-toggle]");
+    var saved = null; try { saved = localStorage.getItem("beat-doc-theme"); } catch (e) {}
+    if (saved === "dark" || saved === "light") root.dataset.theme = saved;
+    btn.addEventListener("click", function () {
+      var dark = root.dataset.theme === "dark" || (!root.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+      root.dataset.theme = dark ? "light" : "dark";
+      try { localStorage.setItem("beat-doc-theme", root.dataset.theme); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

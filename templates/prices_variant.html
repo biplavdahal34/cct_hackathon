@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ line.name }} {{ v.number }} used price in Nepal — BEAT{% endblock %}
+{% block content %}
+{% set g = v.generation %}
+{{ m.finder(finder_items, 'Find your exact model', 'Model number or year', 'Search by model number or year to switch to another ' ~ line.name ~ ' model.') }}
+
+<div class="crumbs"><a href="{{ url_for('price_guide') }}">Prices</a><span>/</span><a href="{{ url_for('price_line', line_id=line.id) }}">{{ line.name }}</a><span>/</span><span>{{ v.number }}</span></div>
+
+<section class="line-hero">
+  <div>
+    <p class="eyebrow">{{ line.name }}{% if v.year %} · {{ v.year }}{% endif %}</p>
+    <h1 class="line-title">{{ v.title }} <span class="num-tag">{{ v.number }}</span></h1>
+    {% if g %}
+    <dl class="specs">
+      <div><dt>Processor</dt><dd>{{ g.cpu }}</dd></div>
+      {% if g.gpu %}<div><dt>Graphics</dt><dd>{{ g.gpu }}</dd></div>{% endif %}
+      <div><dt>Screen</dt><dd>{{ g.screen }}</dd></div>
+    </dl>
+    {% else %}
+    <p class="lede">This model number is not in BEAT's table of {{ line.name }} models yet, so its year and specifications are not shown. The price below comes from checked listings that carry this model number.</p>
+    {% endif %}
+    {% if draft and g %}<div class="draft"><span class="pill warn plain">Draft</span> <span>{{ draft_note }}</span></div>{% endif %}
+  </div>
+  <div>
+    <div class="hero-art">{{ m.art(hero.url if hero else None, line.kind, v.title) }}</div>
+    {% if hero and hero.credit %}<p class="credit">Image: <a href="{{ hero.credit.source }}" target="_blank" rel="noopener">{{ hero.credit.owner }}</a></p>{% endif %}
+  </div>
+</section>
+
+<h3 class="sec">Price</h3>
+<div class="card">{{ m.price_block(est, 'this model', min_listings) }}</div>
+
+<h3 class="sec">Listings behind the price</h3>
+{{ m.listing_table(rows) }}
+{{ m.how_worked_out() }}
+<p class="none" style="margin-top:14px"><a href="{{ url_for('price_line', line_id=line.id) }}">Back to everything about the {{ line.name }}</a>.</p>
+{% endblock %}

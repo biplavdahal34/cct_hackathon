@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ line.name }} used price in Nepal — BEAT{% endblock %}
+{% block content %}
+{{ m.finder(finder_items, 'Find your exact model', 'Model number or year', 'This page covers the whole ' ~ line.name ~ ' line. Prices differ between years and specifications, so search by model number or year to see the price for yours.') }}
+
+<div class="crumbs"><a href="{{ url_for('price_guide') }}">Prices</a><span>/</span><span>{{ line.name }}</span></div>
+
+<section class="line-hero">
+  <div>
+    <p class="eyebrow">{{ line.kind_label }}{% if line.brand %} · {{ line.brand }}{% endif %}</p>
+    <h1 class="line-title">{{ line.name }}</h1>
+    {% if line.tagline %}<p class="lede">{{ line.tagline }}</p>{% endif %}
+    {% if draft %}<div class="draft"><span class="pill warn plain">Draft</span> <span>{{ draft_note }}</span></div>{% endif %}
+  </div>
+  <div>
+    <div class="hero-art">{{ m.art(hero.url if hero else None, line.kind, line.name) }}</div>
+    {% if hero and hero.credit %}<p class="credit">Image: <a href="{{ hero.credit.source }}" target="_blank" rel="noopener">{{ hero.credit.owner }}</a></p>{% endif %}
+  </div>
+</section>
+
+<h3 class="sec" id="prices">Price</h3>
+<div class="card">
+  {{ m.price_block(est, 'the ' ~ line.name, min_listings) }}
+  {% if variants %}<p class="none" style="margin-top:12px"><b>This mixes every model below, so it is not the price of any one of them.</b> Search for your exact model at the top of the page.{% if unplaced %} {{ unplaced }} checked listing{{ 's' if unplaced != 1 }} gave no model number.{% endif %}</p>{% endif %}
+</div>
+
+{% if variants %}
+<div class="card" style="margin-top:14px">
+  <h3>By model</h3>
+  <div class="tbl-wrap">
+  <table class="caltable">
+    <thead><tr><th>Model</th><th>Listings checked</th><th>Estimated fair price</th><th></th></tr></thead>
+    <tbody>
+      {% for v in variants %}
+      <tr>
+        <td><a href="{{ url_for('price_variant', line_id=line.id, variant_id=v.id) }}"><b>{{ v.title }}</b></a><br><span class="muted" style="font-size:13px">{{ v.sub }}</span></td>
+        <td class="n">{{ v.est.n }}</td>
+        <td class="n">NPR {{ v.est.price|fmt }}</td>
+        <td>{% if not v.est.enough %}<span class="pill warn plain">Not enough listings</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<h3 class="sec">Listings behind the price</h3>
+{{ m.listing_table(rows) }}
+{{ m.how_worked_out() }}
+
+{% if line.what_it_is %}
+{% if latest %}
+<h3 class="sec">Latest models in this line</h3>
+<div class="latest">
+  {% for t in latest %}
+  {% if t.variant %}<a class="latest-tile" href="{{ url_for('price_variant', line_id=line.id, variant_id=t.variant.id) }}">{% else %}<div class="latest-tile">{% endif %}
+    <div class="tile-art">{{ m.art(t.image, line.kind, t.gen.label) }}</div>
+    <div class="tile-txt"><b>{{ t.gen.label }}</b><small>{{ t.gen.year }} · {{ t.gen.model_numbers[0] }}</small>
+      {% if t.variant %}<span class="pill accent plain">{{ t.variant.status }}</span>{% else %}<span class="pill plain">No listings checked</span>{% endif %}</div>
+  {% if t.variant %}</a>{% else %}</div>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<h3 class="sec">What it is</h3>
+<div class="prose">{% for p in line.what_it_is %}<p>{{ p }}</p>{% endfor %}</div>
+{% if line.good_for %}
+<div class="cols2">
+  <div class="card"><h3>Good for</h3><ul class="dots ok">{% for x in line.good_for %}<li>{{ x }}</li>{% endfor %}</ul></div>
+  <div class="card"><h3>Not for</h3><ul class="dots bad">{% for x in line.not_for %}<li>{{ x }}</li>{% endfor %}</ul></div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if generations %}
+<h3 class="sec">Models and years</h3>
+<div class="tbl-wrap">
+  <table class="caltable">
+    <thead><tr><th>Year</th><th>Model</th><th>Model number</th><th>Processor</th>{% if line.kind != 'phone' %}<th>Graphics</th>{% endif %}<th>Screen</th><th>Listings checked</th></tr></thead>
+    <tbody>
+      {% for r in generations %}
+      <tr>
+        <td class="n">{{ r.gen.year }}</td><td>{{ r.gen.label }}</td><td class="n">{{ r.gen.model_numbers|join(', ') }}</td>
+        <td>{{ r.gen.cpu }}</td>{% if line.kind != 'phone' %}<td>{{ r.gen.gpu or '—' }}</td>{% endif %}<td>{{ r.gen.screen }}</td>
+        <td>{% if r.variant %}<a href="{{ url_for('price_variant', line_id=line.id, variant_id=r.variant.id) }}">{{ r.variant.est.n }}</a>{% else %}<span class="muted">none</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="none" style="margin-top:8px">Newer models may not be listed here yet. A model number that is not in this table still gets its own entry once a listing for it has been checked.</p>
+{% endif %}
+
+{% if line.check %}
+<h3 class="sec">What to check on a used {{ line.name }}</h3>
+<div class="cols2">
+  <div class="card"><h3>Before you pay</h3><ul class="dots">{% for x in line.check %}<li>{{ x }}</li>{% endfor %}</ul></div>
+  <div>
+    {% if line.weak_points %}<div class="card"><h3>Weak points</h3><ul class="dots">{% for x in line.weak_points %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+    {% if line.price_notes %}<div class="card" style="margin-top:14px"><h3>What sets the price</h3><ul class="dots">{% for x in line.price_notes %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+  </div>
+</div>
+{% elif steps %}
+<h3 class="sec">What to check when you meet</h3>
+<div class="card"><ol class="steps">{% for s in steps %}<li><b>{{ s.title }}</b><p style="margin:2px 0 0">{{ s.how }}</p><p class="none" style="margin:4px 0 0"><b>Walk away if:</b> {{ s.bad_if }}</p></li>{% endfor %}</ol></div>
+{% endif %}
+<p class="none" style="margin-top:14px">Asking prices, not sale prices. Sellers in Nepal expect to negotiate, so the typical sale is somewhat below these numbers.</p>
+{% endblock %}

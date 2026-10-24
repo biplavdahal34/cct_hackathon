@@ -63,3 +63,101 @@
   <button class="btn sm" type="button" data-copy>{{ label }}</button>
 </div>
 {%- endmacro %}
+
+
+{# a product picture, or a plain outline when no picture has been added to static/products #}
+{% macro art(image, kind='laptop', alt='') -%}
+{% if image %}<img src="{{ image }}" alt="{{ alt }}" loading="lazy">
+{% elif kind == 'phone' %}<svg viewBox="0 0 80 120" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" role="img" aria-label="{{ alt or 'Phone' }}">
+  <rect x="14" y="6" width="52" height="108" rx="9" fill="var(--panel)"/>
+  <rect x="20" y="16" width="40" height="84" rx="2" stroke-width="1.4" opacity=".5"/>
+  <circle cx="40" cy="108" r="2.2" stroke-width="1.4" opacity=".6"/>
+</svg>
+{% else %}<svg viewBox="0 0 160 104" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" role="img" aria-label="{{ alt or 'Laptop' }}">
+  <rect x="26" y="8" width="108" height="70" rx="7" fill="var(--panel)"/>
+  <rect x="33" y="15" width="94" height="56" rx="2" stroke-width="1.4" opacity=".5"/>
+  <path d="M10 84h140l-8 12a6 6 0 0 1-5 3H23a6 6 0 0 1-5-3z" fill="var(--panel)"/>
+  <path d="M66 90h28" stroke-width="1.6" opacity=".5"/>
+  {% if kind == 'gaming' %}<path d="M33 71h94" stroke="var(--accent)" stroke-width="2.4"/>{% endif %}
+</svg>{% endif %}
+{%- endmacro %}
+
+{# the finder: a big labelled search box, and floating chips for the models that have been checked #}
+{% macro finder(items, label, placeholder, help) -%}
+<div class="finder" id="finder">
+  <label class="finder-label" for="finderQ">{{ label }}</label>
+  <div class="finder-row">
+    <div class="finder-box">
+      <svg class="finder-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>
+      <input id="finderQ" class="finder-input" type="search" autocomplete="off" spellcheck="false" placeholder="{{ placeholder }}" aria-controls="finderPanel" aria-expanded="false">
+      <button type="button" class="btn primary" id="finderGo">Search</button>
+    </div>
+    <div class="finder-panel" id="finderPanel" hidden>
+      {% for it in items %}
+      <a class="mchip" href="{{ it.href }}" data-text="{{ it.text }}">
+        <span class="mart">{{ art(it.image, it.kind, it.title) }}</span>
+        <span class="mtxt"><b>{{ it.title }}</b><small>{{ it.sub }}</small><small class="mstat">{{ it.status }}</small></span>
+      </a>
+      {% endfor %}
+      <p class="finder-empty" hidden>No checked model matches that. Only models BEAT has checked a listing for are shown here.</p>
+      {% if not items %}<p class="finder-none">No other models have been checked yet.</p>{% endif %}
+    </div>
+  </div>
+  <p class="finder-help">{{ help }}</p>
+  <noscript><div class="finder-fallback">{% for it in items %}<a class="mchip" href="{{ it.href }}"><span class="mtxt"><b>{{ it.title }}</b><small>{{ it.sub }}</small></span></a>{% endfor %}</div></noscript>
+</div>
+{%- endmacro %}
+
+{# shown wherever there are too few checked listings for a price to mean much #}
+{% macro not_enough(n, what, minimum) -%}
+<div class="notice" role="note">
+  <b>Not enough listings for an accurate price</b>
+  <p>BEAT has checked {{ n }} listing{{ 's' if n != 1 }} for {{ what }}, and a price needs at least {{ minimum }} to mean much. Treat any number here as a rough guide. You may need to evaluate the one you are looking at yourself: compare it with live listings on Hamrobazaar, ask the seller for the exact specifications and the condition, and <a href="{{ url_for('home') }}">run the listing through BEAT</a>.</p>
+</div>
+{%- endmacro %}
+
+{# the price worked out from the verdicts, with the caveats that belong to it #}
+{% macro price_block(est, what, minimum) -%}
+<div class="est">
+  <div><small>Estimated fair price</small><b class="price-big">NPR {{ est.price|fmt }}</b><span class="est-sub">from {{ est.n }} checked listing{{ 's' if est.n != 1 }}</span></div>
+  <div class="est-side">
+    {% if est.n_ok %}<div><small>Listings BEAT rated acceptable asked</small><b>{% if est.ok_low == est.ok_high %}NPR {{ est.ok_low|fmt }}{% else %}NPR {{ est.ok_low|fmt }} to {{ est.ok_high|fmt }}{% endif %}</b></div>{% endif %}
+    <div><small>Rated Buy worthy or better</small><b>{{ est.n_good }} of {{ est.n }}</b></div>
+  </div>
+</div>
+{% if est.weak %}<p class="none" style="margin-top:12px">None of the listings behind this price were rated acceptable, so it is a weak guide.</p>{% endif %}
+{% if not est.enough %}<div style="margin-top:14px">{{ not_enough(est.n, what, minimum) }}</div>{% endif %}
+{%- endmacro %}
+
+{# every checked listing behind a price, best verdict first #}
+{% macro listing_table(rows) -%}
+<div class="tbl-wrap">
+<table class="caltable">
+  <thead><tr><th>Verdict</th><th>Score</th><th>Asking price</th><th>Against the estimate</th><th>Counts for</th><th>Listing</th></tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><span class="pill {{ r.tone }}">{{ r.label }}</span></td>
+      <td class="n">{{ r.score }}</td>
+      <td class="n">NPR {{ r.price|fmt }}</td>
+      <td class="n">{% if r.diff is none %}—{% elif r.diff == 0 %}the same{% else %}{{ '+' if r.diff > 0 }}{{ r.diff }}%{% endif %}</td>
+      <td class="n">{{ r.weight_pct }}%</td>
+      <td class="muted" style="font-size:13px">{{ r.title }}{% if r.condition %} · {{ r.condition }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{%- endmacro %}
+
+{% macro how_worked_out() -%}
+<details class="card lim" style="margin-top:14px">
+  <summary>How this price is worked out <span class="plus">+</span></summary>
+  <ul class="dots">
+    <li>Every listing a buyer has checked with BEAT is one data point: what the seller asked, and the score and verdict BEAT gave it.</li>
+    <li>The price is the average of those asking prices, with each one counted in proportion to its score. A listing rated Buy worthy at 150,000 counts for far more than one rated Caution at 200,000, so the estimate stays close to 150,000.</li>
+    <li>A listing checked more than once counts once. Listings that BEAT scored very low still count a little, because a bad score is often about the device, not the price.</li>
+    <li>These are asking prices from listings that were checked, not sale prices. Prices collected from the site will be added later to make the estimate more accurate.</li>
+  </ul>
+</details>
+{%- endmacro %}

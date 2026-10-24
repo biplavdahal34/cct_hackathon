@@ -153,9 +153,6 @@ class PriceIndexTests(Base):
         self.assertEqual(st["new_median"], 78000)
         self.assertEqual(st["by_condition"]["like_new"]["n"], 2)
         self.assertIsNone(st["trend_pct"])                 # not enough history
-        self.assertEqual(len(prices.series("iphone-13")), 1)
-        self.assertEqual([s["key"] for s in prices.guide_index(min_n=3)], ["iphone-13"])
-        self.assertEqual(prices.guide_index(min_n=4), [])
 
     def test_trend_compares_recent_with_older(self):
         old = [{"external_id": f"O{i}", "title": "x", "price": 60000, "condition": "used"} for i in range(4)]
@@ -187,17 +184,6 @@ class PriceIndexTests(Base):
         self.assertEqual(out["inserted"], 1)
         self.assertEqual(out["failed"], ["bad"])
         self.assertEqual(prices.prune(days=0), 0)         # today's rows are kept
-
-    def test_pages(self):
-        self.assertIn("No price data yet", self.c.get("/prices").get_data(as_text=True))
-        self.assertEqual(self.c.get("/prices/nothing-here").status_code, 404)
-        rows = deep(RICH_MARKET["listings"])
-        prices.observe(rows, "iphone-13", "iphone 13")
-        page = self.c.get("/prices").get_data(as_text=True)
-        self.assertIn("iPhone 13", page)
-        page = self.c.get("/prices/iphone-13").get_data(as_text=True)
-        self.assertIn("48,500", page)
-        self.assertIn("Brand new on the site", page)
 
 
 if __name__ == "__main__":

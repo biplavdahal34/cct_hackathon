@@ -54,7 +54,9 @@ Everything is server-rendered Flask. One small script (`static/js/app.js`) handl
 
 **Memory (`snapshots.py`).** Every fetch stores what the listing said and a perceptual hash of each photo. A later check shows price cuts, a condition tag that got better, replaced photos, the same photos in another seller's listing, and how many listings this seller has posted.
 
-**Price index (`prices.py`).** A daily crawl plus every analysis's comparables build per-model medians, the brand-new price on the same site and a monthly trend. Public pages at `/prices`.
+**Price index (`prices.py`).** A daily crawl plus every analysis's comparables are stored as observations, one per listing per day. The report uses them for its "% below new" line.
+
+**Price pages (`catalogue.py`, `knowledge/products.py`).** `/prices` opens on a search box and a grid of cards, one for every model BEAT has checked a listing for, phones and laptops alike, each a picture and a name. Opening a card shows the price, the listings behind it, and, for lines in `knowledge/products.py`, what the line is, its models and years, and what to check. A search box on every page finds the exact model by name, model number or year and floats a chip for each checked model, and nothing else. The price comes from the verdicts: every checked listing is a data point, counted in proportion to its score, so a listing rated Buy worthy at 150,000 counts for far more than one rated Caution at 200,000 and the price lands near 150,000. A model with fewer than `PRICE_MIN_LISTINGS` (5) checked listings gets a plain notice that its price is not accurate and the buyer may need to evaluate it themselves. A listing checked twice counts once, and only phones and laptops priced in NPR are used. Listings collected by scraping can be added as more data points later. Pictures are the manufacturers' own product images saved in `static/products/` under a line or model id, with their source listed in `knowledge/products.py` and credited on the page; without one the page draws an outline. Listing photos are never used, because these pages are public. The description text is a draft a person has to check, and the pages say so. Results are cached for `PRICE_PAGE_CACHE_SECONDS` (60).
 
 **Proof round (`followup.py`).** The report writes the message asking the seller for the screenshots that matter for this device. Upload what they send; Gemini reads them against the claims, the score is recomputed, and the screenshots are not kept.
 
@@ -99,7 +101,7 @@ Everything is server-rendered Flask. One small script (`static/js/app.js`) handl
 - Step-by-step inspection protocol for the platform with the walk-away condition for each step, and the NTA IMEI check
 - Proof round: the message to send the seller, an upload box for their screenshots, and the claims they confirm or contradict
 - History tab: price and condition timeline, edits, photos seen elsewhere, seller volume
-- A scoped assistant that answers questions about this report only (10 a day per listing on the shared key)
+- An assistant for this listing and the purchase around it: the report, the score and what-ifs on it, the device, negotiating, meeting and paying safely. It cannot change the score, and what it says passes a last check that removes links, phone numbers and prompt text (10 questions a day per listing on the shared key)
 - "Did you buy it?" feedback, and a Nepali version of the whole report on request
 
 **Accounts & security**
@@ -157,6 +159,9 @@ quota and are not metered. Every number below is an environment variable (see `.
 | `FREE_ANALYSES_PER_DAY_GLOBAL` | 100 | everyone combined — set below your Gemini daily quota |
 | `FREE_FACEBOOK_PER_DAY_GLOBAL` | 15 | everyone combined — set below your Apify credits |
 | `MAX_ANALYSIS_IMAGES` | 6 | photos sent to Gemini per listing |
+| `PRICE_MIN_LISTINGS` | 5 | checked listings a model needs before its price is shown without the "not enough listings" notice |
+| `PRICE_PAGE_CACHE_SECONDS` | 60 | how long the price pages reuse what they read from the checked listings |
+| `ANALYSIS_IMAGE_MAX_SIDE` | 1600 | longest side in pixels of a photo sent to Gemini; larger photos are scaled down first, `0` sends the originals |
 | `REUSE_ANALYSIS_DAYS` | 7 | a listing checked (by anyone) within this window shows the stored report instead of re-running; “Check again” on the report forces a fresh run |
 | `CHAT_MESSAGES_PER_LISTING` | 10 | per user, per listing, per `CHAT_WINDOW_HOURS` (24), questions to the report assistant on the shared key |
 | `CHAT_MESSAGES_PER_DAY_GLOBAL` | 300 | everyone combined, assistant questions on the shared key |
@@ -201,11 +206,12 @@ routes_auth.py      register, OTP verification, login, logout
 report_views.py     pipeline helpers: normalization, view-models, source detection, scrape cache, enrich() (the Python layer)
 functions.py        scrapers (Hamrobazaar detail + search API, Facebook via Apify), both Gemini calls, image download
 scoring.py          the score: fixed weights over findings, caps, ledger
-knowledge/          tables a person maintains: models (model numbers), protocols (inspection steps), repairs (NPR), scams, nepal (NTA)
+knowledge/          tables a person maintains: models (model numbers), protocols (inspection steps), repairs (NPR), scams, nepal (NTA), products (lines, models, pictures' credits)
 snapshots.py        listing snapshots, photo hashes (dHash), diffs, photo reuse, seller profile
-prices.py           price index: model keys, observations, crawler, stats, public guide
+prices.py           price index: model keys, observations, crawler, stats (feeds the report's "below new" line)
+catalogue.py        the price pages: matches checked listings to models and works out each price from their verdicts
 negotiation.py      opening offer and message from the fair range and repair estimates
-chat.py             the scoped report assistant: context pack, instruction refusal, caps
+chat.py             the report assistant: context pack, escaping, instruction filter, answer check, caps
 followup.py         proof round: seller message, upload validation, screenshot check, re-score signals
 outcomes.py         outcome feedback and calibration
 translate.py        Nepali report, structure-preserving merge
@@ -220,7 +226,7 @@ templates/
   base.html, auth_base.html, _macros.html (score ring, flashes, key-confirmation dialog, copy block)
   home.html         URL box, advanced (own keys) panel with the free-key warning, working state
   report.html       the buyer's report: tabs, ledger, proof round, history, outcome box, assistant panel
-  prices.html, price_model.html, accuracy.html   public pages
+  prices_home.html, prices_line.html, prices_variant.html, accuracy.html   public pages
   analyses.html     a user's past checks
   account.html      stored keys (with the free-key warning), remaining allowance
   login.html, register.html, verify_otp.html

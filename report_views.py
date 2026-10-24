@@ -182,6 +182,16 @@ def normalize_report(report: dict) -> dict:
     return report
 
 
+def fill_original_description(report: dict, listing: dict) -> dict:
+    """The model is told not to echo the seller's text back, which saves output time. The
+    "What the seller wrote" card gets the listing's own text, which is what the model would have copied."""
+    da = report.get("description_analysis")
+    text = listing.get("description") if isinstance(listing, dict) else None
+    if isinstance(da, dict) and isinstance(text, str) and text.strip():
+        da["original_description"] = text
+    return report
+
+
 def facts_rows(ps: dict, claims: dict, category: str = "phone") -> list:
     bh = claims.get("battery_health_percent")
     price = ps.get("asking_price") or {}

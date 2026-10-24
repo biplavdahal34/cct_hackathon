@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Used prices in Nepal — BEAT{% endblock %}
+{% block content %}
+{{ m.finder(finder_items, 'Find a model', 'Model, number or year', 'Every model here has been checked by BEAT. Search by name, model number or year, for example LOQ, S20 FE or ANV15-51.') }}
+
+{% if cards %}
+<h3 class="sec" style="margin-top:4px">Models BEAT has checked</h3>
+<div class="line-grid">
+  {% for c in cards %}
+  <a class="line-card" href="{{ url_for('price_line', line_id=c.id) }}">
+    <div class="line-art">{{ m.art(c.image, c.kind, c.name) }}</div>
+    <div class="line-name">{{ c.name }}</div>
+  </a>
+  {% endfor %}
+</div>
+<p class="none" style="margin-top:18px; max-width:68ch">Each price is worked out from the listings buyers have checked with BEAT, counting a listing BEAT rated well for more than one it rated badly. Open a model to see the price, the listings behind it, and whether there are enough of them to trust it.</p>
+{% else %}
+<div class="empty"><b>No models have been checked yet</b>A model appears here once someone has checked a listing for it.<br><a class="btn primary" href="{{ url_for('home') }}">Check a listing</a></div>
+{% endif %}
+{% endblock %}
