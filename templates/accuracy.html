@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}How often BEAT is right — BEAT{% endblock %}
+{% block content %}
+<div class="narrow">
+  <h2 class="title" style="font-size:30px">How often BEAT is right</h2>
+  <p class="muted" style="font-size:14.5px; margin:8px 0 18px">After using a report, a buyer can say what happened. These are the totals. A “hit” is a positive verdict followed by a purchase that was as described, or a cautious verdict followed by problems or a scam. “Did not buy” is neither.</p>
+
+  {% if cal.enough %}
+  <div class="card">
+    <table class="caltable">
+      <thead><tr><th>Verdict</th><th>Reports</th><th>As described</th><th>Problems</th><th>Scam</th><th>Didn't buy</th><th>Hit rate</th></tr></thead>
+      <tbody>
+        {% for p in cal.per_rating %}
+        <tr>
+          <td>{{ p.rating|replace('_', ' ')|capitalize }}</td>
+          <td class="n">{{ p.n }}</td>
+          <td class="n">{{ p.counts.bought_as_described }}</td>
+          <td class="n">{{ p.counts.bought_with_issues }}</td>
+          <td class="n">{{ p.counts.scam }}</td>
+          <td class="n">{{ p.counts.did_not_buy }}</td>
+          <td class="n">{% if p.hit_rate is not none %}{{ p.hit_rate }}% <span class="muted">of {{ p.judged }}</span>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="none" style="margin-top:12px">{{ cal.total }} reports with feedback so far.</p>
+  </div>
+  {% else %}
+  <div class="empty"><b>Not enough feedback yet</b>{{ cal.total }} of the {{ cal.min_for_public }} reports needed before these numbers mean anything. Every report page has a “Did you buy it?” box at the bottom.</div>
+  {% endif %}
+</div>
+{% endblock %}

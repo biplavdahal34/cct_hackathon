@@ -1,0 +1,282 @@
+{
+ "name": "acer-nitro-v15-laptop",
+ "note": "Real listing analysed on 2026-10-15; seller details removed. The report is the model's output; the score is recomputed by the Python layer.",
+ "listing": {
+  "title": "Acer Nitro V 15 ANV15-51-75VW",
+  "condition": "Like new",
+  "product_img": [
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/76ee04ad-16be-41bf-be65-f2b734a915f2.webp",
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/ca47e9e7-ae90-4e9e-9ad3-dc071a82807b.webp",
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/cde601a5-7835-4674-b39a-ab14dec25bf8.webp",
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/f9200d50-20dd-47bc-8312-e3bd98bba727.webp"
+  ],
+  "price": {
+   "amount": 95000,
+   "currency": "NPR",
+   "type": "Negotiable"
+  },
+  "address": "Ch******du",
+  "delivery": {
+   "available": false,
+   "details": "Seller will not deliver the product to you"
+  },
+  "seller": {
+   "name": "Seller",
+   "phone": null,
+   "profile_url": null,
+   "profile_picture": null
+  },
+  "description": "Selling my Acer Nitro V15 gaming laptop in  excellent condition \n• Intel Core i7-13620H (13th Gen)\n• NVIDIA GeForce RTX 2050 4GB\n• 16GB DDR5 RAM\n• 512GB SSD\n• 15.6\" FHD 144Hz IPS display\n• Windows 11 Home\n• Battery health approximately 87%\n• 9/10 physical condition\n• No scratches or dents/No repairs or    replaced parts\n• Original charger included\n• Original box included\n• Used for approximately 1 year\n• Warranty expired\nSerious buyers are welcome to inspect the laptop before purchase.",
+  "specifications": {
+   "Processor": "Intel Core i7-13620H",
+   "Processor Generation": "13th Gen",
+   "RAM (GB)": "16",
+   "Video Card": "NVIDIA GeForce RTX 2050 4 GB",
+   "HDD (GB)": "512",
+   "Screen Type": "IPS",
+   "Screen Size (Inch\\\\\\\")": "15",
+   "Features": "144Hz FHD display, Wi-Fi, Bluetooth, Windows 11 Ho",
+   "Used For": "1 year"
+  },
+  "source": "hamrobazaar",
+  "images": [
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/76ee04ad-16be-41bf-be65-f2b734a915f2.webp",
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/ca47e9e7-ae90-4e9e-9ad3-dc071a82807b.webp",
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/cde601a5-7835-4674-b39a-ab14dec25bf8.webp",
+   "https://hamrobazaar.blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/09/06/f9200d50-20dd-47bc-8312-e3bd98bba727.webp"
+  ],
+  "url": "https://hamrobazaar.com/detail/x/y/4A14949E-15AF-4472-B1DE-777F313FF530"
+ },
+ "report": {
+  "device_category": "laptop",
+  "product_summary": {
+   "title": "Acer Nitro V 15 ANV15-51-75VW Gaming Laptop",
+   "model": "Acer Nitro V 15 ANV15-51-75VW",
+   "storage": "512GB SSD",
+   "ram": "16GB DDR5",
+   "stated_condition": "Like new",
+   "assessed_condition": "good - light cosmetic wear with a sticker applied",
+   "matches_stated_condition": "yes",
+   "asking_price": {
+    "amount": 95000,
+    "currency": "NPR",
+    "negotiable": true
+   },
+   "location": "Kathmandu",
+   "delivery_available": false
+  },
+  "description_analysis": {
+   "original_description": "Selling my Acer Nitro V15 gaming laptop in  excellent condition \n• Intel Core i7-13620H (13th Gen)\n• NVIDIA GeForce RTX 2050 4GB\n• 16GB DDR5 RAM\n• 512GB SSD\n• 15.6\" FHD 144Hz IPS display\n• Windows 11 Home\n• Battery health approximately 87%\n• 9/10 physical condition\n• No scratches or dents/No repairs or    replaced parts\n• Original charger included\n• Original box included\n• Used for approximately 1 year\n• Warranty expired\nSerious buyers are welcome to inspect the laptop before purchase.",
+   "translated_description": "Selling my Acer Nitro V15 gaming laptop in excellent condition. Intel Core i7-13620H (13th Gen), NVIDIA GeForce RTX 2050 4GB, 16GB DDR5 RAM, 512GB SSD, 15.6\" FHD 144Hz IPS display, Windows 11 Home. Battery health approximately 87%. 9/10 physical condition. No scratches or dents, no repairs or replaced parts. Original charger and box included. Used for approximately 1 year, warranty expired. Serious buyers are welcome to inspect the laptop before purchase.",
+   "extracted_claims": {
+    "battery_health_percent": 87,
+    "box_included": true,
+    "accessories": [
+     "Original charger",
+     "Original box"
+    ],
+    "reason_for_selling": null,
+    "other_notes": [
+     "Used for 1 year",
+     "Warranty expired",
+     "No repairs or replaced parts"
+    ]
+   },
+   "category_specific_claims": {
+    "keyboard_and_backlight": "claimed_working",
+    "hinge": "claimed_working",
+    "trackpad": "claimed_working",
+    "panel_type": "claimed_working",
+    "dedicated_gpu": "claimed_working",
+    "os_and_license": "claimed_working",
+    "original_charger": "claimed_working"
+   },
+   "claim_credibility": "The description reads clear, detailed, and transparent, listing exact specifications and acknowledging normal wear like 87% battery health after a year of use."
+  },
+  "image_analysis": {
+   "images_reviewed": 4,
+   "per_image": [
+    {
+     "image_index": 1,
+     "summary": "Top lid of the laptop showing Acer Nitro design and blue accents",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "wear",
+       "location": "bottom-left corner of the lid",
+       "severity": "minor",
+       "confidence": "low",
+       "notes": "Possible slight smudge or dust mark, otherwise clean."
+      }
+     ]
+    },
+    {
+     "image_index": 2,
+     "summary": "Right side profile showing I/O ports and exhaust vents",
+     "photo_authenticity": "real_device_photo",
+     "findings": []
+    },
+    {
+     "image_index": 3,
+     "summary": "Close-up of palmrest area showing sticker next to trackpad and spec badges",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "stain",
+       "location": "palmrest left side",
+       "severity": "minor",
+       "confidence": "medium",
+       "notes": "A decorative sticker has been applied to the palmrest."
+      }
+     ]
+    },
+    {
+     "image_index": 4,
+     "summary": "Front-facing view of the laptop with the screen closed, showing keyboard deck and branding",
+     "photo_authenticity": "real_device_photo",
+     "findings": []
+    }
+   ],
+   "not_verifiable_from_images": [
+    "Screen operation and pixel uniformity (display is off)",
+    "Actual battery health percentage under load",
+    "Keyboard key functionality and backlight operation",
+    "Internal component health (SSD SMART status, fans, thermal paste)",
+    "Port functionality"
+   ]
+  },
+  "red_flags": [],
+  "green_flags": [
+   "Original box and original charger included",
+   "Reasonable and honest battery health claim (87% after 1 year)",
+   "Clear and transparent specification listing matching modern hardware"
+  ],
+  "buyer_guidance": {
+   "questions_to_ask_seller": [
+    "Can we run a battery report via Windows PowerShell to verify the exact design capacity vs full charge capacity?",
+    "Is the laptop still running on the factory thermal paste, and has it ever been opened for cleaning?"
+   ],
+   "in_person_checks": [
+    "Type every single key on the keyboard and test the keyboard backlight",
+    "Check trackpad responsiveness and palm rejection",
+    "Verify screen uniformity and test for dead pixels by opening a solid white/grey image",
+    "Check system properties to confirm Intel i7-13620H, 16GB RAM, and RTX 2050 match claims",
+    "Run a quick benchmark or stress test to check fan noise and thermals"
+   ],
+   "negotiation_leverage": [
+    "Warranty is already expired and battery health is at 87%",
+    "Sticker applied to the palmrest could leave a residue if removed"
+   ],
+   "walk_away_if": [
+    "The actual hardware specs in Windows do not match the listing",
+    "The laptop shows signs of liquid damage or unexpected internal repairs",
+    "The seller refuses an in-person test or basic software verification"
+   ]
+  },
+  "verdict": {
+   "rating": "buy_worthy",
+   "score_0_100": 82,
+   "badge_color": "green",
+   "one_liner": "A well-maintained mid-range gaming laptop with complete accessories and transparent disclosures.",
+   "reasoning": "The seller provides complete and transparent details, including realistic wear such as 87% battery health after a year of use. The inclusion of the original box and charger adds significant value and credibility. Photos confirm a clean physical exterior with no major structural defects. While thermal performance and internal components require an in-person check, the overall listing is solid and fairly priced for the local market.",
+   "ideal_for": "Gamers and students looking for a capable mid-range gaming and productivity laptop with verified box and charger.",
+   "not_ideal_for": "Users needing a brand-new device with active manufacturer warranty."
+  },
+  "limitations": [
+   "Display is turned off in all photos, preventing visual verification of screen condition or dead pixels",
+   "Internal thermal state and actual SSD wear cannot be inspected via photographs"
+  ],
+  "price_analysis": {
+   "verdict": "fair",
+   "estimated_fair_range_npr": [
+    90000,
+    115000
+   ],
+   "reasoning": "Zero direct comparable listings for the Acer Nitro V 15 ANV15-51-75VW were found in the scraped data, as the search results contained only unrelated items like apparel, real estate, and adult goods. Consequently, market statistics could not be computed from the scraped listings. Based on general second-hand market pricing for mid-range gaming laptops with similar specifications in Nepal, a fair price range is estimated between 90,000 and 115,000 NPR. The seller's asking price of 95,000 NPR falls within this reasonable estimated range, yielding a fair verdict with low confidence due to the lack of empirical comparative data.",
+   "confidence": "low"
+  },
+  "market_data": {
+   "listings_used": 0,
+   "market_stats": {
+    "min": 0,
+    "max": 0,
+    "median": 0,
+    "average": 0
+   },
+   "listings": [
+    {
+     "title": "YSL",
+     "price": 3500,
+     "url": "https://hamrobazaar.com/detail/48E944AC-DF29-4A32-96E6-58D053D8F743"
+    },
+    {
+     "title": "Official Chitwan Rhinos Jersey (Fan Edition)",
+     "price": 1500,
+     "url": "https://hamrobazaar.com/detail/BDB599E6-336C-4C5E-AE60-B1F1E3D1DA4C"
+    },
+    {
+     "title": "Brand New Dildo + Pussy 2-in-1",
+     "price": 8000,
+     "url": "https://hamrobazaar.com/detail/51C7D751-5C4D-4746-BA60-490E49F48CBA"
+    },
+    {
+     "title": "Commercial Space on Rent at Mid Baneshwor",
+     "price": 170000,
+     "url": "https://hamrobazaar.com/detail/6A44F6E6-9C18-4A4D-AC5C-6E8FA64939B6"
+    },
+    {
+     "title": "Original Nike Sneakers|Dashain Sale|Under Rs12,999",
+     "price": 12990,
+     "url": "https://hamrobazaar.com/detail/7FD03EC7-8D69-4EC9-A7A4-B56F94130C68"
+    },
+    {
+     "title": "Original Adidas Sneakers|Dashain Sale| Under 12990",
+     "price": 10590,
+     "url": "https://hamrobazaar.com/detail/8F1B79DE-37B4-445D-97A2-841870905B99"
+    },
+    {
+     "title": "Garmin Venus 2 Plus",
+     "price": 35000,
+     "url": "https://hamrobazaar.com/detail/3EFC6498-744F-4792-A37E-58FC3B6E76AF"
+    }
+   ],
+   "excluded": [
+    {
+     "title": "YSL",
+     "reason": "Completely different product (perfume/brand accessory)"
+    },
+    {
+     "title": "Official Chitwan Rhinos Jersey (Fan Edition)",
+     "reason": "Clothing/sports merchandise, unrelated to the laptop"
+    },
+    {
+     "title": "Brand New Dildo + Pussy 2-in-1",
+     "reason": "Adult toy, unrelated electronics"
+    },
+    {
+     "title": "Commercial Space on Rent at Mid Baneshwor",
+     "reason": "Real estate rental, unrelated"
+    },
+    {
+     "title": "Original Nike Sneakers|Dashain Sale|Under Rs12,999",
+     "reason": "Footwear, unrelated"
+    },
+    {
+     "title": "Original Adidas Sneakers|Dashain Sale| Under 12990",
+     "reason": "Footwear, unrelated"
+    },
+    {
+     "title": "Garmin Venus 2 Plus",
+     "reason": "Smartwatch, different device model"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "ratings": [
+   "buy_worthy",
+   "strong_buy"
+  ],
+  "scam_keys": []
+ }
+}

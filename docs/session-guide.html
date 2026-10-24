@@ -703,6 +703,22 @@ SESSION_COOKIE_SECURE=0 nohup venv/bin/python run.py &gt; .preview/server.log &a
 </ul>
 
 <!-- ============================================================ -->
+<h2 id="addendum-2026-10-24">Addendum · 24 October 2026</h2>
+<p>A second session built most of the "features worth adding" list and the planned prompt-injection hardening. In brief, so this guide is not misleading:</p>
+<ul>
+  <li><b>Score in Python.</b> <code>scoring.py</code> computes the score and rating from findings with fixed weights, group caps and hard caps (severe visible defect, lock, pay-first, far-below-market price, photos reused by another seller). The model's rating is a bounded nudge of at most 8 points. The report shows the ledger. This is the "real fix" the guide planned.</li>
+  <li><b>Comparables search fixed.</b> The search API ignored the old <code>keyword</code> body and returned unrelated listings (bikes, land). <code>functions.py</code> now sends the site's own body (<code>searchParams.searchValue</code>, <code>filterParams</code>, paging) and gets condition tags, categories and seller ids back.</li>
+  <li><b>Knowledge tables</b> in <code>knowledge/</code>: model numbers and regions, per-platform inspection protocols with walk-away conditions, Kathmandu repair-cost ranges, scam patterns, NTA MDMS step. Each has a REVIEWED date; edit the tables, not prompts.</li>
+  <li><b>Listing memory</b> (<code>snapshots.py</code>): snapshots, dHash photo hashes, diffs, photo reuse across sellers, seller profile. New tables <code>listing_snapshot</code>, <code>image_hash</code>.</li>
+  <li><b>Price index</b> (<code>prices.py</code>, table <code>price_observation</code>): <code>flask crawl-prices</code> daily (compose <code>crawler</code> service) plus every analysis's comparables; public pages at <code>/prices</code>.</li>
+  <li><b>Report assistant</b> (<code>chat.py</code>, table <code>chat_message</code>): answers only about the listing from a Python-built context pack (no seller contact), declines instruction-shaped messages before any model call, 10 questions per listing per user per day on the shared key, BYOK exempt. This replaces the "report chatbot" design sketch above; no SQL or tools are exposed to the model.</li>
+  <li><b>Proof round</b> (<code>followup.py</code>, table <code>followup</code>): seller screenshots checked against claims, then the report is re-scored. Images are not stored.</li>
+  <li><b>Outcomes and calibration</b> (<code>outcomes.py</code>, table <code>outcome</code>, page <code>/accuracy</code>).</li>
+  <li><b>Nepali report</b> (<code>translate.py</code>, column <code>analysis.report_ne_json</code>): one translation per report, structure and enum codes preserved by a merge step.</li>
+  <li><b>Free-key confirmation.</b> Both key entry points carry the "free-tier only, don't trust us fully" copy and a dialog with a checkbox that must be ticked before the key is sent; the server refuses a key without <code>key_ack=1</code>.</li>
+  <li><b>Golden set and CI.</b> <code>tests/fixtures/golden/</code>, <code>flask eval-reports</code>, <code>.github/workflows/tests.yml</code>. Tests moved onto <code>tests/common.py</code>.</li>
+</ul>
+<p>Still not done from the list above: price alerts and watch-a-listing (need a job queue), compare 2–3 listings, public share links, the browser extension, the package restructure. The proposed <code>beat/</code> layout still applies; the new modules were added flat to match the current tree.</p>
 <h2 id="pending">Not done yet</h2>
 <ul>
   <li><span class="pill todo">designed, not built</span> <strong>"Check again" hardening.</strong> Right now the button simply sends <code>fresh=1</code>. The plan: require the report to be at least 30 minutes old, send <code>recheck=&lt;analysis id&gt;</code> instead of a raw flag, allow one running analysis per user per listing, and add a 30-per-hour abuse cap even for own-key users. You asked to be consulted before any new limit, so this waits for your go.</li>

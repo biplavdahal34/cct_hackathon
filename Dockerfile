@@ -6,6 +6,7 @@ COPY requirement.txt .
 RUN pip install --no-cache-dir -r requirement.txt
 
 COPY *.py ./
+COPY knowledge/ knowledge/
 COPY templates/ templates/
 COPY static/ static/
 

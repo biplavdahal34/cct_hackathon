@@ -9,6 +9,7 @@
 {% set ia = A.image_analysis or {} %}
 {% set da = A.description_analysis or {} %}
 {% set pa = A.price_analysis or {} %}
+{% set sc = A.scoring or {} %}
 {% set per_image = ia.per_image or [] %}
 {% set n_photos = per_image|length %}
 {% set n_red = (A.red_flags or [])|length %}
@@ -20,6 +21,22 @@
 {% set lev = bg.negotiation_leverage or [] %}
 {% set source = listing.source or a.source %}
 {% set seller = listing.seller or {} %}
+{% set scams = beat.scams or [] %}
+{% set region = beat.region or [] %}
+{% set repairs = beat.repairs or {} %}
+{% set proto = beat.protocol or {} %}
+{% set hist = beat.history or {} %}
+{% set sprof = beat.seller or {} %}
+{% set guide = beat.price_guide or {} %}
+{% set neg = beat.negotiation or {} %}
+{% set n_scam = scams|length %}
+{% set sc_items = sc.get('items') or [] %}
+{% set rep_items = repairs.get('items') or [] %}
+{% set n_hist = (hist.changes or [])|length + (hist.matches or [])|length %}
+{# history findings serious enough to count as red flags (reused photos, a condition tag that got better, replaced photos) #}
+{% set hist_warn = (hist.signals or [])|selectattr('severity', 'in', ['high', 'medium'])|list %}
+{% set n_hist_warn = hist_warn|length %}
+{% set n_bad = n_red + n_scam + n_hist_warn %}
 
 {# fair-range bar inputs: only when the range is two real numbers and there is an asking price #}
 {% set rng = pa.estimated_fair_range_npr %}
@@ -39,7 +56,8 @@
   {% set comps = md.listings|rejectattr('title', 'in', excluded)|list %}
 {% endif %}
 
-<article id="result" class="reveal vc-{{ vc }}">
+<article id="result" class="reveal vc-{{ vc }} {{ 'ne' if lang == 'ne' }}">
+<div class="rmain">
 
   <header class="rhead">
     <div>
@@ -53,46 +71,76 @@
           <input type="hidden" name="fresh" value="1">
           <button class="btn sm quiet" type="submit" title="Run a new analysis of this listing">Check again</button>
         </form>
+        {% if lang == 'ne' %}
+          <a class="btn sm quiet" href="{{ url_for('report', analysis_id=a.id) }}">In English</a>
+        {% elif has_ne %}
+          <a class="btn sm quiet" href="{{ url_for('report', analysis_id=a.id, lang='ne') }}">नेपालीमा</a>
+        {% else %}
+          <form method="post" action="{{ url_for('report_translate', analysis_id=a.id) }}" class="inline" data-busy="अनुवाद हुँदैछ…">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn sm quiet" type="submit" title="Translate this report into Nepali (counts as one check unless you use your own key)">नेपालीमा</button>
+          </form>
+        {% endif %}
       </div>
       <h1>{{ A.product_summary.title }}</h1>
       <p class="lead">{{ v.one_liner }}</p>
       <div class="chips">
         <span class="pill plain">{{ (A.device_category or 'device')|title }}</span>
         {% if A.product_summary.location %}<span class="pill plain">{{ A.product_summary.location }}</span>{% endif %}
-        <a class="pill plain" href="{{ listing.url }}" target="_blank" rel="noopener">Original listing ↗</a>
+        {% if beat.pct_off_new %}<span class="pill accent">{{ beat.pct_off_new }}% below new</span>{% endif %}
+        <a class="pill plain" href="{{ listing.url }}" target="_blank" rel="noopener">{{ ui('Original listing', lang) }} ↗</a>
       </div>
     </div>
     <div class="scorecard">
       {{ m.ring(v.score_0_100, vc, 'xl') }}
       <div style="text-align:center">
         <div class="rate">{{ (v.rating or '')|replace('_', ' ')|capitalize }}</div>
-        <div class="cap">BEAT score</div>
+        <div class="cap">{{ ui('BEAT score', lang) }}</div>
       </div>
     </div>
   </header>
 
   <div class="stats">
-    <div class="stat"><small>Asking price</small><b class="num">{{ price.main or '—' }}</b></div>
-    <div class="stat"><small>Price check</small><b class="t-{{ price.tone or '' }}">{{ (price.verdict_text or '—')|capitalize }}</b></div>
-    <div class="stat"><small>Photos checked</small><b class="num">{{ n_photos }}</b></div>
-    <div class="stat"><small>Red flags</small><b class="num {{ 't-bad' if n_red else 't-ok' }}">{{ n_red }}</b></div>
+    <div class="stat"><small>{{ ui('Asking price', lang) }}</small><b class="num">{{ price.main or '—' }}</b></div>
+    <div class="stat"><small>{{ ui('Price check', lang) }}</small><b class="t-{{ price.tone or '' }}">{{ (price.verdict_text or '—')|capitalize }}</b></div>
+    <div class="stat"><small>{{ ui('Photos checked', lang) }}</small><b class="num">{{ n_photos }}</b></div>
+    <div class="stat"><small>{{ ui('Red flags', lang) }}</small><b class="num {{ 't-bad' if n_bad else 't-ok' }}">{{ n_bad }}</b></div>
   </div>
 
   <nav class="tabs" role="tablist" aria-label="Report sections">
-    <button type="button" class="on" data-t="summary" role="tab" aria-selected="true">Summary{% if n_red %}<i class="cnt alert">{{ n_red }}</i>{% endif %}</button>
-    <button type="button" data-t="photos" role="tab" aria-selected="false">Photo analysis{% if n_photos %}<i class="cnt">{{ n_photos }}</i>{% endif %}</button>
-    <button type="button" data-t="price" role="tab" aria-selected="false">Price</button>
-    <button type="button" data-t="description" role="tab" aria-selected="false">Description</button>
-    <button type="button" data-t="checklist" role="tab" aria-selected="false">Before you buy</button>
-    <button type="button" data-t="details" role="tab" aria-selected="false">Details</button>
+    <button type="button" class="on" data-t="summary" role="tab" aria-selected="true">{{ ui('Summary', lang) }}{% if n_bad %}<i class="cnt alert">{{ n_bad }}</i>{% endif %}</button>
+    <button type="button" data-t="photos" role="tab" aria-selected="false">{{ ui('Photo analysis', lang) }}{% if n_photos %}<i class="cnt">{{ n_photos }}</i>{% endif %}</button>
+    <button type="button" data-t="price" role="tab" aria-selected="false">{{ ui('Price', lang) }}</button>
+    <button type="button" data-t="description" role="tab" aria-selected="false">{{ ui('Description', lang) }}</button>
+    <button type="button" data-t="checklist" role="tab" aria-selected="false">{{ ui('Before you buy', lang) }}{% if followups %}<i class="cnt">{{ followups|length }}</i>{% endif %}</button>
+    <button type="button" data-t="history" role="tab" aria-selected="false">{{ ui('History', lang) }}{% if n_hist %}<i class="cnt">{{ n_hist }}</i>{% endif %}</button>
+    <button type="button" data-t="details" role="tab" aria-selected="false">{{ ui('Details', lang) }}</button>
   </nav>
 
   {# ── SUMMARY ── #}
   <section class="tp" data-t="summary" role="tabpanel" aria-label="Summary">
     <div class="card">
-      <h3>Why this score</h3>
-      <p class="lead-p">{{ v.reasoning }}</p>
-      {% if v.ideal_for or v.not_ideal_for %}
+      <h3>{{ ui('Why this score', lang) }}</h3>
+      {% if sc.summary %}<p class="lead-p">{{ sc.summary }}</p>{% endif %}
+      <p class="lead-p" style="margin-top:8px">{{ v.reasoning }}</p>
+      {% if sc_items %}
+      <details class="ledger">
+        <summary>How the {{ sc.score }} was counted <span class="plus">+</span></summary>
+        <ul>
+          {% for it in sc_items %}
+          <li class="{{ 'plus' if it.points > 0 else 'minus' }}"><span class="pts">{{ '+' if it.points > 0 }}{{ it.points }}</span><span>{{ it.label }}</span></li>
+          {% endfor %}
+        </ul>
+        {% if sc.model_rating and not sc.agrees %}
+        <p class="none" style="margin-top:10px">The AI's own suggestion was “{{ sc.model_rating|replace('_', ' ') }}”. The number above comes from BEAT's fixed rules, so the seller's text cannot talk the score up.</p>
+        {% elif sc.model_rating %}
+        <p class="none" style="margin-top:10px">The AI's own read agrees with BEAT's rules.</p>
+        {% endif %}
+      </details>
+      {% endif %}
+      {# the AI's audience lines only when BEAT's rules did not overrule its read #}
+      {% set fit_ok = not sc.cap_applied and (sc.agrees or not sc.model_rating or v.rating not in ['caution', 'avoid']) %}
+      {% if fit_ok and (v.ideal_for or v.not_ideal_for) %}
       <div class="fit">
         <div>
           <span class="kicker t-ok">Good for</span>
@@ -108,37 +156,80 @@
       {% endif %}
     </div>
 
+    {% if scams %}
+    <div class="card flag red">
+      <h3>{{ ui('Scam patterns', lang) }} <span class="count" style="margin-left:auto">{{ n_scam }}</span></h3>
+      <div class="patterns">
+        {% for s in scams %}
+        <div class="pattern">
+          <div class="pattern-top"><span class="pill {{ 'bad' if s.severity == 'high' else ('warn' if s.severity == 'medium' else 'plain') }}">{{ s.severity }}</span><b>{{ s.title }}</b></div>
+          <p>{{ s.why }}</p>
+          {% if s.evidence %}<p class="evid">{{ s.evidence }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if region %}
+    <div class="card">
+      <h3>{{ ui('Model number and region', lang) }}</h3>
+      {% for r in region %}
+      <div class="region">
+        <b>{{ r.code }}</b>
+        <ul class="dots">{% for f in r.facts %}<li>{{ f }}</li>{% endfor %}{% for w in r.warnings %}<li class="warn">{{ w }}</li>{% endfor %}</ul>
+      </div>
+      {% endfor %}
+      {% if region|selectattr('warnings')|list %}<p class="none">{{ nta.ESIM_CARRIER_NOTE }}</p>{% endif %}
+    </div>
+    {% endif %}
+
     <div class="cols2">
       <div class="card flag red">
-        <h3>Red flags <span class="count" style="margin-left:auto">{{ n_red }}</span></h3>
-        {% if n_red %}<ul class="dots bad">{% for f in A.red_flags %}<li>{{ f }}</li>{% endfor %}</ul>
+        <h3>{{ ui('Red flags', lang) }} <span class="count" style="margin-left:auto">{{ n_red + n_hist_warn }}</span></h3>
+        {% if n_red + n_hist_warn %}<ul class="dots bad">{% for f in A.red_flags %}<li>{{ f }}</li>{% endfor %}{% for s in hist_warn %}<li>{{ s.label }}</li>{% endfor %}</ul>
+        {% elif n_scam %}<p class="none">Nothing beyond the patterns above.</p>
         {% else %}<p class="none">Nothing suspicious came up.</p>{% endif %}
       </div>
       <div class="card flag green">
-        <h3>Green flags <span class="count" style="margin-left:auto">{{ n_green }}</span></h3>
+        <h3>{{ ui('Green flags', lang) }} <span class="count" style="margin-left:auto">{{ n_green }}</span></h3>
         {% if n_green %}<ul class="dots ok">{% for f in A.green_flags %}<li>{{ f }}</li>{% endfor %}</ul>
         {% else %}<p class="none">Nothing specific stood out.</p>{% endif %}
       </div>
     </div>
 
     <div class="card">
-      <h3>Seller</h3>
+      <h3>{{ ui('Seller', lang) }}</h3>
       <div class="seller">
         {% if seller.profile_picture and seller.profile_picture.startswith('https://') %}
         <img src="/img?u={{ seller.profile_picture|urlencode }}" alt="">
         {% else %}<span class="avatar soft" style="width:44px;height:44px;color:var(--muted)">{{ (seller.name or 'S')|trim|first|upper }}</span>{% endif %}
         <div>
-          <div class="sn">{{ seller.name|trim if seller.name else 'Unknown seller' }}</div>
+          <div class="sn">{{ seller.name|trim if seller.name else 'Unknown seller' }}{% if sprof.badge and sprof.badge != 'No badge' %} <span class="pill ok plain">{{ sprof.badge }}</span>{% endif %}</div>
           <div class="sp">{{ seller.phone if seller.phone else 'Contact through the listing' }}</div>
         </div>
         {% if seller.profile_url %}<a class="btn sm" style="margin-left:auto" href="{{ seller.profile_url }}" target="_blank" rel="noopener">Profile ↗</a>{% endif %}
       </div>
+      {% if sprof.ad_count or sprof.listings_seen %}
+      <div class="kvs" style="margin-top:12px">
+        {% if sprof.ad_count %}<div class="kv"><span class="k">Active listings on the site</span><span class="v">{{ sprof.ad_count }}{% if sprof.ad_count >= 15 %} · a shop, not a personal sale{% endif %}</span></div>{% endif %}
+        {% if sprof.listings_seen %}<div class="kv"><span class="k">Listings BEAT has seen from this seller (90 days)</span><span class="v">{{ sprof.listings_seen }}</span></div>{% endif %}
+      </div>
+      {% endif %}
     </div>
   </section>
 
   {# ── PHOTOS ── #}
   <section class="tp" data-t="photos" role="tabpanel" aria-label="Photo inspection" hidden>
     {% if n_photos %}<p class="tabintro">BEAT looked at {{ n_photos }} photo{{ 's' if n_photos != 1 }} for damage and for signs they aren't of the actual device.</p>{% endif %}
+    {% if hist.matches %}
+    <div class="card flag red">
+      <h3>These photos have appeared before</h3>
+      <ul class="dots bad">
+        {% for mt in hist.matches %}<li>{{ 'Same seller' if mt.same_seller else 'A different seller' }}, {{ mt.captured_at or 'earlier' }}{% if mt.title %}: “{{ mt.title }}”{% endif %}{% if mt.distance == 0 %} (identical photo){% else %} (near-identical photo){% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     {% for p in per_image %}
     {% set src = listing.images[p.image_index - 1] if listing.images and listing.images|length >= p.image_index else none %}
     <div class="card photo">
@@ -181,7 +272,10 @@
         <span class="price-big">{{ price.main }}</span>
         <span class="pill {{ price.tone or '' }}">{{ price.verdict_text|capitalize }}</span>
       </div>
-      <p class="price-meta">Fair range <b>{{ price.range }}</b> &nbsp;·&nbsp; Confidence <b>{{ price.confidence }}</b>{% if md and md.listings_used %} &nbsp;·&nbsp; Based on <b>{{ md.listings_used }}</b> live listing{{ 's' if md.listings_used != 1 }}{% endif %}</p>
+      <p class="price-meta">{{ ui('Fair range', lang) }} <b>{{ price.range }}</b> &nbsp;·&nbsp; {{ ui('Confidence', lang) }} <b>{{ price.confidence }}</b>{% if md and md.listings_used %} &nbsp;·&nbsp; Based on <b>{{ md.listings_used }}</b> live listing{{ 's' if md.listings_used != 1 }}{% endif %}</p>
+      {% if beat.new_price_anchor %}
+      <p class="price-meta">Brand-new on the same site: <b>NPR {{ beat.new_price_anchor|fmt }}</b>{% if beat.pct_off_new %} &nbsp;·&nbsp; this one is <b>{{ beat.pct_off_new }}% below new</b>{% endif %}</p>
+      {% endif %}
       {% if has_range and ask is number %}
       <div class="rangebar">
         <p class="none">The asking price sits <b>{{ where }}</b> the fair range.</p>
@@ -190,16 +284,41 @@
       </div>
       {% endif %}
       <p class="price-why">{{ pa.reasoning }}</p>
+      {% if guide.median %}
+      <p class="price-meta" style="margin-top:12px">{{ ui('Price guide', lang) }}: <b>{{ guide.label }}</b> used, median <b>NPR {{ guide.median|fmt }}</b> across {{ guide.n }} listings in {{ guide.days }} days{% if guide.trend_pct is not none %}, <b class="{{ 't-ok' if guide.trend_pct < 0 else 't-warn' }}">{{ '+' if guide.trend_pct > 0 }}{{ guide.trend_pct }}%</b> over the last month{% endif %}. <a href="{{ url_for('price_model', key=guide.key) }}">See the guide →</a></p>
+      {% endif %}
     </div>
     {% else %}
     <div class="card"><p class="none">This listing doesn't show a price, so there's nothing to compare.</p></div>
     {% endif %}
+
     {% if comps %}
     <div class="card">
-      <h3>Similar listings right now <span class="count" style="margin-left:auto">{{ comps|length }}</span></h3>
-      {% for c in comps[:8] %}
-      <a class="comp" href="{{ c.url }}" target="_blank" rel="noopener"><span class="ct">{{ c.title }}</span><span class="cp">NPR {{ c.price|fmt }}</span></a>
+      <h3>{{ ui('Similar listings right now', lang) }} <span class="count" style="margin-left:auto">{{ comps|length }}</span></h3>
+      {% for c in comps[:10] %}
+      <a class="comp" href="{{ c.url }}" target="_blank" rel="noopener"><span class="ct">{{ c.title }}</span>{% if c.condition and c.condition != 'unknown' %}<span class="pill plain cc">{{ c.condition|cond }}</span>{% endif %}<span class="cp">NPR {{ c.price|fmt }}</span></a>
       {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if rep_items %}
+    <div class="card">
+      <h3>{{ ui('Repair estimates', lang) }} <span class="count" style="margin-left:auto">NPR {{ repairs.total_low|fmt }}–{{ repairs.total_high|fmt }}</span></h3>
+      {% for it in rep_items %}
+      <div class="kv"><span class="k"><b>{{ it.label }}</b><br><span class="muted" style="font-size:13px">{{ it.why }}</span></span><span class="v">NPR {{ it.low|fmt }}–{{ it.high|fmt }}</span></div>
+      {% endfor %}
+      <p class="none" style="margin-top:10px">{{ repairs.note }} Figures reviewed {{ repairs.reviewed|day }}.</p>
+    </div>
+    {% endif %}
+
+    {% if neg.offer %}
+    <div class="card cred">
+      <h3>{{ ui('Negotiation', lang) }}</h3>
+      <div class="offer"><span class="offer-big">NPR {{ neg.offer|fmt }}</span><span class="muted">opening offer{% if neg.ceiling > neg.offer %} · stop at about NPR {{ neg.ceiling|fmt }}{% endif %} · asking NPR {{ neg.asking|fmt }}</span></div>
+      <ul class="dots">{% for b in neg.basis %}<li>{{ b }}</li>{% endfor %}</ul>
+      <p class="none" style="margin:12px 0 6px">Message to send:</p>
+      {{ m.copyblock(neg.message) }}
+      {{ m.copyblock(neg.message_ne, 'Copy Nepali') }}
     </div>
     {% endif %}
   </section>
@@ -208,31 +327,116 @@
   <section class="tp" data-t="description" role="tabpanel" aria-label="Seller's description" hidden>
     <div class="cols2">
       <div class="card"><h3>What the seller wrote</h3><p class="desc">{{ da.original_description }}</p></div>
-      <div class="card"><h3>In plain English</h3><p class="desc">{{ da.translated_description }}</p></div>
+      <div class="card"><h3>{{ 'नेपालीमा' if lang == 'ne' else 'In plain English' }}</h3><p class="desc">{{ da.translated_description }}</p></div>
     </div>
     <div class="card cred"><h3>Do the claims hold up?</h3><p class="lead-p">{{ da.claim_credibility }}</p></div>
   </section>
 
   {# ── BEFORE YOU BUY ── #}
   <section class="tp" data-t="checklist" role="tabpanel" aria-label="Before you buy" hidden>
-    {% if qs or cks %}
-    <div class="cols2">
-      {% if qs %}<div class="card"><h3>Ask the seller</h3><ol class="steps">{% for q in qs %}<li>{{ q }}</li>{% endfor %}</ol></div>{% endif %}
-      {% if cks %}<div class="card"><h3>Check when you meet</h3><ol class="steps">{% for c in cks %}<li>{{ c }}</li>{% endfor %}</ol></div>{% endif %}
+    {% if proto.steps %}
+    <div class="card">
+      <h3>{{ ui('Step by step when you meet', lang) }} <span class="count" style="margin-left:auto">{{ proto.label }}</span></h3>
+      <ol class="proto">
+        {% for s in proto.steps %}
+        <li>
+          <b>{{ s.title }}</b>
+          <p>{{ s.how }}{% if s.url %} <a href="{{ s.url }}" target="_blank" rel="noopener">Open {{ nta.NTA_MDMS_NAME }} ↗</a>{% endif %}</p>
+          <p class="badif"><span>Walk away if</span> {{ s.bad_if }}</p>
+        </li>
+        {% endfor %}
+      </ol>
+      <p class="none">Steps reviewed {{ (beat.reviewed or {}).protocols|day }}. The AI's own list for this listing is below.</p>
     </div>
     {% endif %}
-    {% if lev %}<div class="card"><h3>Reasons to offer less</h3><ul class="dots">{% for l in lev %}<li>{{ l }}</li>{% endfor %}</ul></div>{% endif %}
-    {% if wk %}<div class="card walk"><h3>Walk away if</h3><ul class="xs">{% for w in wk %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
-    {% if not (qs or cks or wk or lev) %}<div class="card"><p class="none">No checklist was produced for this listing.</p></div>{% endif %}
+    {% if qs or cks %}
+    <div class="cols2">
+      {% if qs %}<div class="card"><h3>{{ ui('Ask the seller', lang) }}</h3><ol class="steps">{% for q in qs %}<li>{{ q }}</li>{% endfor %}</ol></div>{% endif %}
+      {% if cks %}<div class="card"><h3>{{ ui('Check when you meet', lang) }}</h3><ol class="steps">{% for c in cks %}<li>{{ c }}</li>{% endfor %}</ol></div>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card" id="proof">
+      <h3>{{ ui('Proof from the seller', lang) }}{% if followups %}<span class="count" style="margin-left:auto">{{ followups|length }} check{{ 's' if followups|length != 1 }}</span>{% endif %}</h3>
+      <p class="none">Photos can't show battery health or a signed-out account. Ask the seller for these screenshots, then upload what they send and BEAT checks them against the listing's claims. The screenshots are read once and not kept.</p>
+      {% if proof_asks %}
+      <ul class="dots" style="margin-top:10px">{% for p in proof_asks %}<li><b>{{ p.label }}:</b> {{ p.what }} <span class="muted">({{ p.why }})</span></li>{% endfor %}</ul>
+      {% endif %}
+      <p class="none" style="margin:12px 0 6px">Message to send:</p>
+      {{ m.copyblock(seller_message) }}
+      <form method="post" action="{{ url_for('report_followup', analysis_id=a.id) }}" enctype="multipart/form-data" class="proofform" data-busy="Checking screenshots…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="field"><span>Seller's screenshots (up to 4, JPEG / PNG / WebP)</span>
+          <input class="input" type="file" name="shots" accept="image/jpeg,image/png,image/webp" multiple required></label>
+        <button class="btn primary" type="submit">Check the screenshots</button>
+        <span class="muted" style="font-size:13px">Counts as one check on the shared key.</span>
+      </form>
+      {% for r in followups %}
+      <div class="proofres {{ 'bad' if r.contradicted or r.different_device else 'ok' }}">
+        <div class="proof-top"><b>Check {{ loop.index }}</b><span class="muted">{{ r.checked_on }} · {{ r.image_count }} screenshot{{ 's' if r.image_count != 1 }}</span>
+          {% if r.contradicted %}<span class="pill bad">{{ r.contradicted }} contradicted</span>{% endif %}
+          {% if r.confirmed %}<span class="pill ok">{{ r.confirmed }} confirmed</span>{% endif %}
+          {% if r.different_device %}<span class="pill bad">different device</span>{% endif %}</div>
+        <p>{{ r.summary }}</p>
+        {% if r.warnings %}<ul class="xs">{% for w in r.warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}
+        {% if r.claims %}
+        <div class="claims">{% for c in r.claims %}<div class="kv"><span class="k">{{ c.claim }}<br><span class="muted" style="font-size:13px">{{ c.evidence }}</span></span><span class="v"><span class="pill {{ 'ok' if c.status == 'confirmed' else ('bad' if c.status == 'contradicted' else 'plain') }}">{{ c.status|replace('_', ' ') }}</span></span></div>{% endfor %}</div>
+        {% endif %}
+        {% if r.images %}
+        <details class="lim"><summary>What each screenshot showed <span class="plus">+</span></summary>
+          <ul class="dots">{% for im in r.images %}<li><b>Screenshot {{ im.index }}:</b> {{ im.shows }}{% if im.device_match != 'unclear' %} · {{ im.device_match }} device{% endif %}{% set rd = im.readings or {} %}{% if rd.model_number %} · model {{ rd.model_number }}{% endif %}{% if rd.battery_health_percent %} · battery {{ rd.battery_health_percent }}%{% endif %}{% if rd.parts_service_history %} · parts history: {{ rd.parts_service_history|join(', ') }}{% endif %}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if lev %}<div class="card"><h3>{{ ui('Reasons to offer less', lang) }}</h3><ul class="dots">{% for l in lev %}<li>{{ l }}</li>{% endfor %}</ul></div>{% endif %}
+    {% if wk %}<div class="card walk"><h3>{{ ui('Walk away if', lang) }}</h3><ul class="xs">{% for w in wk %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+  </section>
+
+  {# ── HISTORY ── #}
+  <section class="tp" data-t="history" role="tabpanel" aria-label="Listing history" hidden>
+    {% if hist.timeline and hist.timeline|length > 1 %}
+    <div class="card">
+      <h3>What this listing said each time BEAT looked</h3>
+      <div class="timeline">
+        {% for t in hist.timeline %}
+        <div class="trow"><span class="td">{{ t.captured_at }}</span><span class="tp2">{% if t.price %}{{ t.currency or 'NPR' }} {{ t.price|fmt }}{% else %}no price{% endif %}</span><span class="tc">{{ t.condition or '' }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if hist.changes %}
+    <div class="card flag {{ 'red' if hist.changes|selectattr('severity', 'equalto', 'medium')|list else 'green' }}">
+      <h3>What changed</h3>
+      <ul class="dots">{% for c in hist.changes %}<li>{{ c.label }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if hist.matches %}
+    <div class="card flag red">
+      <h3>Same photos elsewhere</h3>
+      <ul class="dots bad">{% for mt in hist.matches %}<li>{{ 'This seller' if mt.same_seller else 'A different seller' }} posted {{ 'the same' if mt.distance == 0 else 'a near-identical' }} photo on {{ mt.captured_at or 'an earlier date' }}{% if mt.title %}: “{{ mt.title }}”{% endif %}.</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if hist.signals %}
+    <div class="card"><h3>What this means</h3><ul class="dots">{% for s in hist.signals %}<li>{{ s.label }}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if not (hist.changes or hist.matches or (hist.timeline and hist.timeline|length > 1)) %}
+    <div class="card"><p class="none">{% if beat %}This is the first time BEAT has seen this listing, and its photos have not appeared in any other listing BEAT has checked. Check it again in a few days to see whether the price or the condition tag moved.{% else %}This report was made before BEAT kept listing history. Use “Check again” to start one.{% endif %}</p></div>
+    {% endif %}
   </section>
 
   {# ── DETAILS ── #}
   <section class="tp" data-t="details" role="tabpanel" aria-label="Listing details" hidden>
     <div class="card">
-      <h3>Listing facts</h3>
+      <h3>{{ ui('Listing facts', lang) }}</h3>
       {% for r in facts %}
       <div class="kv"><span class="k">{{ r.label }}</span><span class="v">{% if r.tone %}<span class="pill {{ r.tone }}">{{ r.value|capitalize }}</span>{% else %}{{ r.value }}{% endif %}</span></div>
       {% endfor %}
+      {% if A.product_summary.model_number %}<div class="kv"><span class="k">Model number</span><span class="v">{{ A.product_summary.model_number }}</span></div>{% endif %}
+      {% if listing.posted_at %}<div class="kv"><span class="k">Posted</span><span class="v">{{ listing.posted_at|day }}</span></div>{% endif %}
+      {% if listing.views %}<div class="kv"><span class="k">Views on the site</span><span class="v">{{ listing.views|fmt }}</span></div>{% endif %}
     </div>
     {% if A.ai_sources %}
     <div class="card">
@@ -242,15 +446,72 @@
     {% endif %}
     {% if A.limitations %}
     <details class="card lim">
-      <summary>What this report couldn't check <span class="plus">+</span></summary>
+      <summary>{{ ui("What this report couldn't check", lang) }} <span class="plus">+</span></summary>
       <ul class="dots">{% for l in A.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+    {% if beat %}
+    <details class="card lim">
+      <summary>How this report was made <span class="plus">+</span></summary>
+      <ul class="dots">
+        <li>The photos and text were read by an AI model; it reports findings and suggests a rating.</li>
+        <li>The score is computed by BEAT's rules (version {{ sc.version }}) from those findings, the live comparables, the scam patterns and the listing history, so the seller's words cannot change it directly.</li>
+        {% set rv = beat.reviewed or {} %}
+        {% set rdates = [rv.models, rv.protocols, rv.repairs, rv.scams]|select|map('day')|unique|list %}
+        {% if rdates %}<li>Model-number, inspection-step, repair-cost and scam tables were last reviewed by a person on {{ rdates|join(', ') }}.</li>{% endif %}
+        <li>Generated {{ beat.generated_at }} UTC.</li>
+      </ul>
     </details>
     {% endif %}
   </section>
 
+  <div class="card" id="outcome" style="margin-top:22px">
+    <h3>{{ ui('Did you buy it?', lang) }}</h3>
+    {% if outcome %}
+    <p class="lead-p">You said: <b>{{ outcome_labels[outcome.outcome] }}</b>{% if outcome.note %} — “{{ outcome.note }}”{% endif %}. Thank you. <a href="{{ url_for('accuracy') }}">See how BEAT's verdicts hold up →</a></p>
+    {% else %}
+    <p class="none">One answer, after you've decided. It is how BEAT measures whether its verdicts are right, and it is shown publicly only as totals.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('report_outcome', analysis_id=a.id) }}" class="outcomeform">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="radios">
+        {% for key, label in outcome_labels.items() %}
+        <label class="radio"><input type="radio" name="outcome" value="{{ key }}" {{ 'checked' if outcome and outcome.outcome == key }} required> <span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <input class="input" name="note" maxlength="300" placeholder="Optional: what was different from the report?" value="{{ outcome.note if outcome and outcome.note else '' }}">
+      <button class="btn" type="submit">{{ 'Update' if outcome else 'Save' }}</button>
+    </form>
+  </div>
+
   <footer class="rfoot">
-    <span>Written by an AI from the listing's photos and text. Always check the device in person before paying.</span>
-    <a href="{{ listing.url }}" target="_blank" rel="noopener">Original listing ↗</a>
+    <span>Written by an AI from the listing's photos and text, scored by BEAT's rules. Always check the device in person before paying.</span>
+    <a href="{{ listing.url }}" target="_blank" rel="noopener">{{ ui('Original listing', lang) }} ↗</a>
   </footer>
+</div>
+
+{# ── CHAT ── #}
+<aside class="rchat" id="chat" data-url="{{ url_for('report_chat', analysis_id=a.id) }}" data-remaining="{{ chat_remaining }}" data-cap="{{ chat_cap }}" data-own="{{ '1' if own_gemini else '0' }}" data-keys="{{ url_for('account') }}#keys">
+  <div class="chatcard">
+    <div class="chathead">
+      <h3>{{ ui('Ask about this listing', lang) }}</h3>
+      <span class="chatleft" id="chatLeft">{% if own_gemini %}Using your own Gemini key{% else %}{{ chat_remaining }} of {{ chat_cap }} free questions left today{% endif %}</span>
+    </div>
+    <p class="none">Answers come only from this report. It won't talk about anything else, and it can't change the score.</p>
+    <div class="chatlog" id="chatLog" aria-live="polite">
+      {% for msg in chat_history %}
+      <div class="bubble {{ 'me' if msg.role == 'user' else 'bot' }}{{ ' off' if msg.role != 'user' and msg.in_scope is sameas false }}">{{ msg.content }}</div>
+      {% else %}
+      <div class="bubble bot hint">Try: “Is the battery claim believable?”, “What should I offer?”, “Which photo shows the crack?”</div>
+      {% endfor %}
+    </div>
+    <form class="chatform" id="chatForm">
+      <label class="sr" for="chatQ">Your question</label>
+      <textarea class="input" id="chatQ" rows="2" maxlength="500" placeholder="Ask a question about this listing…" {{ 'disabled' if (chat_remaining == 0 and not own_gemini) }}></textarea>
+      <button class="btn primary" type="submit" id="chatGo" {{ 'disabled' if (chat_remaining == 0 and not own_gemini) }}>Ask</button>
+    </form>
+    <p class="chatnote none" id="chatNote" {{ '' if (chat_remaining == 0 and not own_gemini) else 'hidden' }}>You've used today's free questions for this listing. <a href="{{ url_for('account') }}#keys">Add your own free Gemini key</a> to keep asking.</p>
+  </div>
+</aside>
 </article>
 {% endblock %}

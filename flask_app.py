@@ -1,7 +1,7 @@
 """App creation, configuration, and wiring. Routes live in routes_*.py,
 models in models.py, forms in forms.py, pipeline helpers in report_views.py."""
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 # Load .env BEFORE importing anything that reads env at import time
 # (functions.py reads API keys; extensions read nothing yet).
 try:
@@ -32,7 +32,7 @@ app.config.update(
     # Set SESSION_COOKIE_SECURE=1 in production (HTTPS) — breaks login over plain http dev
     SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0") == "1",
     PERMANENT_SESSION_LIFETIME=12 * 3600,
-    MAX_CONTENT_LENGTH=1 * 1024 * 1024,   # refuse absurdly large request bodies
+    MAX_CONTENT_LENGTH=26 * 1024 * 1024,  # proof-round uploads: up to 4 screenshots of 6 MB; nginx mirrors this
 )
 
 app.config.update(
@@ -64,6 +64,17 @@ def fmt_number(v):
     except (TypeError, ValueError):
         return v
 
+@app.template_filter("day")
+def day_label(v):
+    """'2026-10-24', '2026-10-20 10:00:00' or a date → '24 Oct 2026'. Anything else passes through."""
+    if not v:
+        return ""
+    try:
+        d = v if isinstance(v, (datetime, date)) else datetime.fromisoformat(str(v)[:10])
+    except ValueError:
+        return v
+    return f"{d.day} {d:%b %Y}"
+
 @app.template_filter("timesince")
 def timesince(dt):
     if not dt:
@@ -88,12 +99,26 @@ def timesince(dt):
 
 register_security_headers(app)
 
+
+@app.template_global("ui")
+def ui_label(label, lang="en"):
+    """Report chrome in Nepali when the translated report is shown."""
+    import translate
+    return translate.ui(label, lang)
+
+
+@app.template_filter("cond")
+def condition_label(v):
+    from functions import CONDITION_LABELS
+    return CONDITION_LABELS.get(v, (v or "").replace("_", " ").capitalize())
+
 with app.app_context():
     db.create_all()
     # Columns added after a table already exists aren't created by create_all;
     # add them in place (SQLite and Postgres both support ADD COLUMN) and backfill.
     from sqlalchemy import inspect, text
-    if "url_key" not in {c["name"] for c in inspect(db.engine).get_columns("analysis")}:
+    _cols = {c["name"] for c in inspect(db.engine).get_columns("analysis")}
+    if "url_key" not in _cols:
         from report_views import canonical_url
         db.session.execute(text("ALTER TABLE analysis ADD COLUMN url_key VARCHAR(2048)"))
         db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_analysis_url_key ON analysis (url_key)"))
@@ -101,6 +126,15 @@ with app.app_context():
             row.url_key = canonical_url(row.url)
         db.session.commit()
         app.logger.info("migrated: analysis.url_key added and backfilled")
+    if "report_ne_json" not in _cols:
+        db.session.execute(text("ALTER TABLE analysis ADD COLUMN report_ne_json TEXT"))
+        db.session.commit()
+        app.logger.info("migrated: analysis.report_ne_json added")
+    if "seller_key" not in _cols:
+        db.session.execute(text("ALTER TABLE analysis ADD COLUMN seller_key VARCHAR(120)"))
+        db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_analysis_seller_key ON analysis (seller_key)"))
+        db.session.commit()
+        app.logger.info("migrated: analysis.seller_key added")
 
 register_auth_routes(app)
 register_main_routes(app)
@@ -148,3 +182,61 @@ def wipe_api_keys(yes):
         db.session.delete(row)
     db.session.commit()
     click.echo(f"deleted {len(rows)} key(s) — now tell affected users to rotate at the provider")
+
+
+@app.cli.command("crawl-prices")
+@click.option("--pages", default=2, show_default=True, help="Result pages per model (20 listings each).")
+@click.option("--model", "models_", multiple=True, help="Only these models (repeatable). Default: the seed list.")
+@click.option("--pause", default=1.0, show_default=True, help="Seconds between searches.")
+@click.option("--no-prune", is_flag=True, help="Keep observations older than PRICE_HISTORY_DAYS.")
+def crawl_prices(pages, models_, pause, no_prune):
+    """Record today's asking prices for popular models (run daily from cron or the crawler service)."""
+    import prices
+    stats = prices.crawl(list(models_) or None, pages=pages, pause=pause, log=click.echo)
+    pruned = 0 if no_prune else prices.prune()
+    click.echo(f"done: {stats['inserted']} new observations across {stats['queries']} models, "
+               f"{len(stats['failed'])} failed, {pruned} old rows pruned")
+
+
+@app.cli.command("eval-reports")
+@click.option("--live", is_flag=True, help="Also run the Gemini pipeline on each fixture (spends the server key).")
+def eval_reports(live):
+    """Score every golden listing in tests/fixtures/golden and compare with the expected band.
+    Without --live only the Python layer runs (scoring, scam patterns, model numbers), which is
+    what CI checks; with --live the stored listing is re-analysed by the model first."""
+    import glob, json as _json
+    import scoring
+    from report_views import enrich
+    files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), "tests", "fixtures", "golden", "*.json")))
+    if not files:
+        click.echo("no fixtures"); return
+    bad = 0
+    for f in files:
+        fx = _json.load(open(f, encoding="utf-8"))
+        listing, expect = fx["listing"], fx["expect"]
+        report = fx["report"]
+        if live:
+            from functions import analyze, market_analysis
+            report = analyze(listing)
+            ps = report.get("product_summary") or {}
+            try:
+                m = market_analysis(ps.get("model") or ps.get("title"), (ps.get("asking_price") or {}).get("amount"), exclude_url=listing.get("url"))
+                report["price_analysis"] = m["price_analysis"]
+                report["market_data"] = {"listings_used": m.get("listings_used", 0), "market_stats": m.get("market_stats") or {},
+                                         "listings": m.get("listings") or [], "excluded": m.get("excluded_listings") or [],
+                                         "new_price_anchor": m.get("new_price_anchor")}
+            except Exception as e:
+                click.echo(f"  market step failed: {e}")
+        enrich(report, listing, None)
+        got = report["verdict"]["rating"]
+        ok = got in expect["ratings"]
+        keys = {s["key"] for s in report["beat"]["scams"]}
+        missing = set(expect.get("scam_keys", [])) - keys
+        if missing:
+            ok = False
+        bad += 0 if ok else 1
+        click.echo(f"{'ok ' if ok else 'BAD'} {os.path.basename(f)}: rating {got} (expected {'/'.join(expect['ratings'])}), "
+                   f"score {report['verdict']['score_0_100']}" + (f", missing scam keys {sorted(missing)}" if missing else ""))
+    click.echo(f"{len(files) - bad}/{len(files)} fixtures within expectations")
+    if bad:
+        raise SystemExit(1)

@@ -96,6 +96,78 @@
     });
   }
 
+  /* API keys: confirm "free-tier only" before a key leaves the browser.
+     Forms with data-key-ack open the dialog when a secret field is filled; the
+     server also refuses a key without key_ack=1, so this is a second gate, not the only one. */
+  var ackDialog = document.getElementById("keyAck");
+  var ackForms = document.querySelectorAll("form[data-key-ack]");
+  if (ackDialog && ackForms.length) {
+    var ackBox = document.getElementById("keyAckBox"), ackGo = document.getElementById("keyAckGo"), pendingForm = null;
+    ackBox.addEventListener("change", function () { ackGo.disabled = !ackBox.checked; });
+    ackDialog.querySelector("[data-ack-cancel]").addEventListener("click", function () { ackDialog.close(); pendingForm = null; });
+    ackGo.addEventListener("click", function () {
+      if (!ackBox.checked || !pendingForm) return;
+      var f = pendingForm; pendingForm = null;
+      var field = f.querySelector("[data-key-ack-field]"); if (field) field.value = "1";
+      ackDialog.close();
+      f.requestSubmit ? f.requestSubmit() : f.submit();
+    });
+    for (var a = 0; a < ackForms.length; a++) {
+      ackForms[a].addEventListener("submit", function (e) {
+        var sub = e.submitter; if (sub && sub.value === "remove") return;          /* removing a key needs no warning */
+        var field = this.querySelector("[data-key-ack-field]");
+        if (field && field.value === "1") return;                                    /* already confirmed */
+        var filled = false, secretsHere = this.querySelectorAll("input[data-secret]");
+        for (var q = 0; q < secretsHere.length; q++) if (secretsHere[q].value.trim()) filled = true;
+        if (!filled) return;                                                         /* no key typed: nothing to confirm */
+        e.preventDefault();
+        pendingForm = this; ackBox.checked = false; ackGo.disabled = true;
+        if (typeof ackDialog.showModal === "function") ackDialog.showModal(); else ackDialog.setAttribute("open", "");
+      });
+    }
+  }
+
+  /* copy-to-clipboard blocks */
+  var copies = document.querySelectorAll("[data-copy]");
+  for (var c = 0; c < copies.length; c++) {
+    copies[c].addEventListener("click", function () {
+      var btn = this, text = btn.parentNode.querySelector(".copytext").textContent;
+      var done = function () { var old = btn.textContent; btn.textContent = "Copied"; setTimeout(function () { btn.textContent = old; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+      else { var ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) {} document.body.removeChild(ta); done(); }
+    });
+  }
+
+  /* report: the assistant panel. One POST per question; the server meters and scopes. */
+  var chatBox = document.getElementById("chat");
+  if (chatBox) {
+    var log = document.getElementById("chatLog"), cform = document.getElementById("chatForm"), q = document.getElementById("chatQ");
+    var go = document.getElementById("chatGo"), left = document.getElementById("chatLeft"), note = document.getElementById("chatNote");
+    var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+    var own = chatBox.dataset.own === "1";
+    function bubble(text, cls) { var d = document.createElement("div"); d.className = "bubble " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
+    function setLeft(n) { if (own) return; left.textContent = n + " of " + chatBox.dataset.cap + " free questions left today"; if (n <= 0) { q.disabled = true; go.disabled = true; note.hidden = false; } }
+    function send() {
+      var text = q.value.trim(); if (!text || go.disabled) return;
+      var hint = log.querySelector(".hint"); if (hint) hint.remove();
+      bubble(text, "me"); q.value = ""; go.disabled = true; q.disabled = true;
+      var wait = bubble("…", "bot wait");
+      fetch(chatBox.dataset.url, { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf }, body: JSON.stringify({ q: text }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+        .then(function (res) {
+          wait.remove();
+          if (res.ok) { bubble(res.j.answer, "bot" + (res.j.in_scope ? "" : " off")); if (typeof res.j.remaining === "number") setLeft(res.j.remaining); }
+          else { bubble(res.j.error || "Something went wrong.", "bot off"); if (res.j.capped) setLeft(0); }
+        })
+        .catch(function () { wait.remove(); bubble("Couldn't reach BEAT. Check your connection and try again.", "bot off"); })
+        .then(function () { if (!(q.disabled && note && !note.hidden)) { go.disabled = false; q.disabled = false; q.focus(); } });
+    }
+    cform.addEventListener("submit", function (e) { e.preventDefault(); send(); });
+    q.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+    log.scrollTop = log.scrollHeight;
+  }
+
   /* report: tabs with hash deep-links (/report/5#price) */
   var bar = document.querySelector("#result .tabs");
   if (bar) {

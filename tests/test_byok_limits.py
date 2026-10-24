@@ -1,73 +1,19 @@
 """BYOK storage + usage caps.  Run:  venv/bin/python -m unittest -v
-Uses an in-memory database and fakes the scrape/Gemini pipeline."""
+Uses an in-memory database and fakes the scrape/Gemini pipeline (tests/common.py)."""
 import os
 import unittest
 from unittest import mock
 
 from cryptography.fernet import Fernet
 
-os.environ["DATABASE_URL"] = "sqlite://"                 # in-memory
-os.environ["KEY_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-os.environ["FREE_ANALYSES_PER_HOUR"] = "6"
-os.environ["FREE_FACEBOOK_PER_HOUR"] = "2"
-os.environ["SESSION_COOKIE_SECURE"] = "0"                # tests run over plain HTTP; .env may say 1
+from tests.common import Base, app, HB, FB, FAKE_REPORT              # noqa: F401
+import api_keys
+import crypto
+import functions
+from extensions import db
+from models import User, UserApiKey, UsageEvent, KeyEvent
 
-import flask_app                                          # noqa: E402
-import api_keys                                           # noqa: E402
-import crypto                                             # noqa: E402
-import functions                                          # noqa: E402
-import routes_main                                        # noqa: E402
-from extensions import db                                 # noqa: E402
-from models import User, UserApiKey, UsageEvent, KeyEvent  # noqa: E402
-
-app = flask_app.app
-app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
-app.login_manager.session_protection = None
-
-HB = "https://hamrobazaar.com/detail/phones/x/ABC"
-FB = "https://www.facebook.com/marketplace/item/1443300707693531/"
-
-FAKE_REPORT = {"verdict": {"rating": "buy_worthy", "score_0_100": 80, "badge_color": "green",
-                           "one_liner": "ok", "reasoning": "ok"},
-               "product_summary": {"title": "Test phone", "model": "Test", "asking_price": {"amount": 1000, "currency": "NPR"}},
-               "device_category": "phone", "image_analysis": {"per_image": []},
-               "description_analysis": {}, "buyer_guidance": {}, "red_flags": [], "green_flags": []}
-
-
-class Base(unittest.TestCase):
-    def setUp(self):
-        self.ctx = app.app_context(); self.ctx.push()
-        db.drop_all(); db.create_all()
-        __import__("security").limiter._hits.clear()        # in-process limiter persists across tests
-        self.user = User(username="sita", email="sita@example.com"); self.user.set_password("pass1234")
-        db.session.add(self.user); db.session.commit()
-        self.c = app.test_client()
-        with self.c.session_transaction() as s:
-            s["_user_id"] = str(self.user.id); s["_fresh"] = True
-        # fake pipeline: records the keys it was handed
-        self.calls = []
-        def fake_scrape(url, apify_token=None):
-            self.calls.append(("scrape", apify_token)); return {"title": "t", "images": [], "source": "x"}
-        def fake_analyze(listing, gemini_key=None, max_images=None):
-            self.calls.append(("analyze", gemini_key)); return dict(FAKE_REPORT, verdict=dict(FAKE_REPORT["verdict"]))
-        def fake_market(*a, gemini_key=None, **k):
-            self.calls.append(("market", gemini_key)); return {"price_analysis": {}, "listings": []}
-        self.patches = [mock.patch.object(routes_main, "scrape_any", fake_scrape),
-                        mock.patch.object(routes_main, "analyze", fake_analyze),
-                        mock.patch.object(routes_main, "market_analysis", fake_market),
-                        mock.patch.object(routes_main, "cache_get", lambda url: None),
-                        mock.patch.object(routes_main, "cache_put", lambda url, l: None),
-                        mock.patch.object(routes_main, "csrf_ok", lambda: True),
-                        mock.patch.dict(api_keys._VALIDATORS, {"gemini": lambda k: None, "apify": lambda k: None})]
-        for p in self.patches: p.start()
-
-    def tearDown(self):
-        for p in self.patches: p.stop()
-        db.session.remove(); db.drop_all(); self.ctx.pop()
-
-    def analyze(self, url, n=None):
-        """POST a listing; `n` makes a distinct listing (reuse would otherwise short-circuit)."""
-        return self.c.post("/", data={"url": url if n is None else f"{url.rstrip('/')}{n}/"})
+ACK = {"key_ack": "1"}
 
 
 class CryptoTests(Base):
@@ -132,12 +78,12 @@ class LimitTests(Base):
 
 class KeyRouteTests(Base):
     def test_save_requires_password(self):
-        r = self.c.post("/account/keys/gemini", data={"api_key": "AIzaSyFAKEFAKEFAKEFAKEFAKE1234", "password": "wrong"})
+        r = self.c.post("/account/keys/gemini", data={"api_key": "AIzaSyFAKEFAKEFAKEFAKEFAKE1234", "password": "wrong", **ACK})
         self.assertEqual(UserApiKey.query.count(), 0)
         self.assertIn("Wrong password", self.c.get("/account").get_data(as_text=True))
 
     def test_save_then_remove(self):
-        self.c.post("/account/keys/gemini", data={"api_key": "AIzaSyFAKEFAKEFAKEFAKEFAKE1234", "password": "pass1234", "action": "save"})
+        self.c.post("/account/keys/gemini", data={"api_key": "AIzaSyFAKEFAKEFAKEFAKEFAKE1234", "password": "pass1234", "action": "save", **ACK})
         page = self.c.get("/account").get_data(as_text=True)
         self.assertIn("····1234", page)
         self.assertNotIn("FAKEFAKE", page)                                 # never rendered back
@@ -148,7 +94,7 @@ class KeyRouteTests(Base):
     def test_invalid_key_is_not_stored(self):
         def reject(k): raise api_keys.KeyInvalid("Google rejected that key.")
         with mock.patch.dict(api_keys._VALIDATORS, {"gemini": reject}):
-            self.c.post("/account/keys/gemini", data={"api_key": "AIzaSyFAKEFAKEFAKEFAKEFAKE1234", "password": "pass1234"})
+            self.c.post("/account/keys/gemini", data={"api_key": "AIzaSyFAKEFAKEFAKEFAKEFAKE1234", "password": "pass1234", **ACK})
         self.assertEqual(UserApiKey.query.count(), 0)
 
     def test_unknown_provider_404(self):
@@ -178,6 +124,7 @@ if __name__ == "__main__":
 from report_views import canonical_url                    # noqa: E402
 from datetime import datetime, timedelta, timezone       # noqa: E402
 from models import Analysis                               # noqa: E402
+import json                                               # noqa: E402
 
 
 class CanonicalUrlTests(unittest.TestCase):
@@ -215,7 +162,7 @@ class ReuseTests(Base):
         db.session.add(Analysis(user_id=other.id, url=HB, url_key=canonical_url(HB), title="Ram's check",
                                 source="hamrobazaar", device_category="phone", rating="avoid",
                                 badge_color="red", score=10,
-                                report_json=__import__("json").dumps(dict(FAKE_REPORT, product_summary={"title": "Ram's check"})),
+                                report_json=json.dumps(dict(FAKE_REPORT, product_summary={"title": "Ram's check"})),
                                 listing_json='{"images": [], "url": "%s", "source": "hamrobazaar"}' % HB))
         db.session.commit()
         loc = self.analyze(HB).headers["Location"]
@@ -243,7 +190,7 @@ class ReuseTests(Base):
 
 class PerCheckKeyTests(Base):
     def test_typed_key_is_used_and_not_metered(self):
-        r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999"})
+        r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999", **ACK})
         self.assertTrue(r.headers["Location"].startswith("/report/"))
         self.assertEqual([c for c in self.calls if c[0] == "analyze"][0][1], "AIzaSyTYPEDTYPEDTYPEDTYPED9999")
         self.assertEqual(UsageEvent.query.count(), 0)
@@ -251,14 +198,14 @@ class PerCheckKeyTests(Base):
 
     def test_typed_key_overrides_saved_key(self):
         api_keys.save_key(self.user.id, "gemini", "AIzaSySAVEDSAVEDSAVEDSAVED1111")
-        self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999"})
+        self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999", **ACK})
         self.assertEqual([c for c in self.calls if c[0] == "analyze"][0][1], "AIzaSyTYPEDTYPEDTYPEDTYPED9999")
         self.assertIsNone(UserApiKey.query.first().last_used_at)      # saved key wasn't the one used
 
     def test_bad_typed_key_is_rejected_before_anything_runs(self):
         def reject(k): raise api_keys.KeyInvalid("Google rejected that key.")
         with mock.patch.dict(api_keys._VALIDATORS, {"gemini": reject}):
-            r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyBADBADBADBADBADBADBAD0000"})
+            r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyBADBADBADBADBADBADBAD0000", **ACK})
         self.assertEqual(r.headers["Location"], "/")
         self.assertIn("Gemini key: Google rejected", self.c.get("/").get_data(as_text=True))
         self.assertEqual(self.calls, [])
@@ -274,12 +221,12 @@ class PerCheckKeyTests(Base):
 class TransportHardeningTests(Base):
     def test_typed_key_over_plain_http_is_refused_in_production(self):
         with mock.patch.dict(os.environ, {"SESSION_COOKIE_SECURE": "1"}):
-            r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999"})
+            r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999", **ACK})
             self.assertEqual(r.headers["Location"], "/")
             self.assertIn("only be sent over HTTPS", self.c.get("/").get_data(as_text=True))
             self.assertEqual(self.calls, [])
             # same request with the proxy saying it was TLS → accepted
-            r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999"},
+            r = self.c.post("/", data={"url": HB, "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999", **ACK},
                             headers={"X-Forwarded-Proto": "https"})
             self.assertTrue(r.headers["Location"].startswith("/report/"))
 
@@ -287,8 +234,8 @@ class TransportHardeningTests(Base):
         import security
         security.limiter._hits.clear()
         for i in range(10):
-            self.c.post("/", data={"url": f"{HB}{i}/", "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999"})
-        r = self.c.post("/", data={"url": f"{HB}99/", "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999"})
+            self.c.post("/", data={"url": f"{HB}{i}/", "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999", **ACK})
+        r = self.c.post("/", data={"url": f"{HB}99/", "gemini_key": "AIzaSyTYPEDTYPEDTYPEDTYPED9999", **ACK})
         self.assertEqual(r.headers["Location"], "/")
         self.assertIn("Too many key attempts", self.c.get("/").get_data(as_text=True))
 
@@ -303,6 +250,6 @@ class TransportHardeningTests(Base):
         secret = "AIzaSyTYPEDTYPEDTYPEDTYPED9999"
         with self.assertLogs(app.logger, level="DEBUG") as logs:
             app.logger.debug("probe")   # ensure the context captures something
-            r = self.c.post("/", data={"url": HB, "gemini_key": secret}, follow_redirects=True)
+            r = self.c.post("/", data={"url": HB, "gemini_key": secret, **ACK}, follow_redirects=True)
         self.assertNotIn(secret, r.get_data(as_text=True))
         self.assertNotIn(secret, "\n".join(logs.output))

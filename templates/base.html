@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>{% block title %}BEAT — Buyer's Evaluation & Assisting Tool{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <script>
@@ -20,6 +21,7 @@
     <nav class="nav" aria-label="Main">
       <a href="{{ url_for('home') }}" class="{{ 'on' if request.endpoint in ('home', 'analyze_url') }}">Home</a>
       <a href="{{ url_for('analyses') }}" class="{{ 'on' if request.endpoint in ('analyses', 'report') }}">Analyses</a>
+      <a href="{{ url_for('price_guide') }}" class="{{ 'on' if request.endpoint in ('price_guide', 'price_model') }}">Prices</a>
     </nav>
     <div class="right">
       <button class="iconbtn" type="button" data-theme-toggle title="Switch theme" aria-label="Switch theme">
@@ -41,6 +43,7 @@
   {% block content %}{% endblock %}
 </main>
 
+{{ m.key_ack_dialog() }}
 <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </body>
 </html>

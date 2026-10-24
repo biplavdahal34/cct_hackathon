@@ -1,0 +1,256 @@
+{
+ "name": "samsung-s22-ultra-two-photos",
+ "note": "Real listing analysed on 2026-10-15; seller details removed. The report is the model's output; the score is recomputed by the Python layer.",
+ "listing": {
+  "title": "Samsung S22 Ultra",
+  "condition": "Like new",
+  "product_img": [
+   "https://hamrobazaar.blr1.cdn.digitaloceanspaces.com/User/Posts/2026/10/16/d12bcf31-e0a6-5dfe-d97c-4cc870670324.jpg",
+   "https://hamrobazaar.blr1.cdn.digitaloceanspaces.com/User/Posts/2026/10/16/a4d6cab5-3914-cffb-90c1-44a8a424d533.jpg"
+  ],
+  "price": {
+   "amount": 54000,
+   "currency": "NPR",
+   "type": "Negotiable"
+  },
+  "address": "Ki******du",
+  "delivery": {
+   "available": false,
+   "details": "Seller will not deliver the product to you"
+  },
+  "seller": {
+   "name": "Seller",
+   "phone": null,
+   "profile_url": null,
+   "profile_picture": null
+  },
+  "description": "Phone is in great condition and has been well maintained. Camera quality is still great than many flagship phones, and everything is working fine.\n\nI have the original charger/adapter, phone box, and purchase bill as well. I always take good care of my belongings, so the phone is in good condition.\n\nInterested buyers can call me to check and test the phone before buying.",
+  "specifications": {
+   "RAM": "12",
+   "Internal Storage": "256",
+   "Used For": "4 years"
+  },
+  "source": "hamrobazaar",
+  "images": [
+   "https://hamrobazaar.blr1.cdn.digitaloceanspaces.com/User/Posts/2026/10/16/d12bcf31-e0a6-5dfe-d97c-4cc870670324.jpg",
+   "https://hamrobazaar.blr1.cdn.digitaloceanspaces.com/User/Posts/2026/10/16/a4d6cab5-3914-cffb-90c1-44a8a424d533.jpg"
+  ],
+  "url": "https://hamrobazaar.com/detail/x/y/F597CE64-2B67-4F30-B5A5-14BC6595FDEE"
+ },
+ "report": {
+  "device_category": "phone",
+  "product_summary": {
+   "title": "Samsung Galaxy S22 Ultra 12GB/256GB",
+   "model": "Samsung Galaxy S22 Ultra",
+   "storage": "256 GB",
+   "ram": "12 GB",
+   "stated_condition": "Like new",
+   "assessed_condition": "good - minor cosmetic smudges and light frame wear",
+   "matches_stated_condition": "unclear",
+   "asking_price": {
+    "amount": 54000,
+    "currency": "NPR",
+    "negotiable": true
+   },
+   "location": "Kathmandu",
+   "delivery_available": false
+  },
+  "description_analysis": {
+   "original_description": "Phone is in great condition and has been well maintained. Camera quality is still great than many flagship phones, and everything is working fine.\n\nI have the original charger/adapter, phone box, and purchase bill as well. I always take good care of my belongings, so the phone is in good condition.\n\nInterested buyers can call me to check and test the phone before buying.",
+   "translated_description": "Phone is in great condition and has been well maintained. Camera quality is still great than many flagship phones, and everything is working fine.\n\nI have the original charger/adapter, phone box, and purchase bill as well. I always take good care of my belongings, so the phone is in good condition.\n\nInterested buyers can call me to check and test the phone before buying.",
+   "extracted_claims": {
+    "battery_health_percent": null,
+    "box_included": true,
+    "accessories": [
+     "original charger/adapter",
+     "purchase bill"
+    ],
+    "reason_for_selling": null,
+    "other_notes": [
+     "Everything is working fine",
+     "Well maintained"
+    ]
+   },
+   "category_specific_claims": {
+    "camera_function": "claimed_working",
+    "general_function": "claimed_working"
+   },
+   "claim_credibility": "The description reads reasonably direct and offers an in-person test, which is a positive sign, though claims of 'like new' condition slightly exaggerate given minor smudges and wear visible in photos."
+  },
+  "image_analysis": {
+   "images_reviewed": 2,
+   "per_image": [
+    {
+     "image_index": 1,
+     "summary": "Front view of phone resting next to its retail box on a wooden surface",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "wear",
+       "location": "bottom bezel/frame area",
+       "severity": "minor",
+       "confidence": "medium",
+       "notes": "Slight reflection/smudge or minor wear near the edge, but screen appears intact."
+      }
+     ]
+    },
+    {
+     "image_index": 2,
+     "summary": "Back view of the phone showing camera lenses and Samsung branding, next to the box",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "stain",
+       "location": "back glass surface",
+       "severity": "minor",
+       "confidence": "medium",
+       "notes": "Smudges or fingerprint oils visible on the matte back panel."
+      }
+     ]
+    }
+   ],
+   "not_verifiable_from_images": [
+    "Battery health percentage and degradation",
+    "Screen operation and touch responsiveness (display is turned off)",
+    "Internal hardware repairs or water damage",
+    "Functionality of cameras, speakers, ports, and S-Pen"
+   ]
+  },
+  "red_flags": [
+   "Battery health not mentioned for a device listed as used for 4 years"
+  ],
+  "green_flags": [
+   "Original retail box and purchase bill included",
+   "Seller encourages in-person checking and testing",
+   "Clean external appearance with no severe physical damage or cracks visible"
+  ],
+  "buyer_guidance": {
+   "questions_to_ask_seller": [
+    "What is the current battery health or backup like after 4 years of use?",
+    "Has the phone ever been opened, repaired, or had any parts (like screen or battery) replaced?",
+    "Is the S-Pen fully functional and original?"
+   ],
+   "in_person_checks": [
+    "Check the Battery Health status or run a diagnostic test",
+    "Test biometrics (fingerprint scanner and face unlock)",
+    "Verify IMEI matches the purchase bill and box via *#06#",
+    "Test all camera lenses, zoom functions, microphone, and speakers",
+    "Remove any case to inspect frame dents or hidden cracks around the curved edges"
+   ],
+   "negotiation_leverage": [
+    "The device is approximately 4 years old, meaning battery degradation is highly likely and replacement may be required soon.",
+    "Price is negotiable, allowing room to lower based on battery condition."
+   ],
+   "walk_away_if": [
+    "The seller refuses an in-person test or changes meetup terms",
+    "Google FRP lock or Samsung account lock is active",
+    "Deep cracks or hidden display panel defects (lines, burn-in) are found upon turning on"
+   ]
+  },
+  "verdict": {
+   "rating": "consider_with_caution",
+   "score_0_100": 68,
+   "badge_color": "yellow",
+   "one_liner": "A complete package with box and bill, but 4 years of use demands careful battery and hardware inspection.",
+   "reasoning": "The listing includes reassuring elements like the original box, purchase bill, and an invitation to test the device in person. However, given the claimed 4 years of usage, battery wear is a major unknown that could necessitate a costly replacement soon. The photos show a generally clean exterior with minor smudges, but the screen is off so display integrity cannot be confirmed visually. Buyers should proceed only after a thorough in-person verification of the battery and hardware.",
+   "ideal_for": "Tech-savvy buyers looking for a flagship phone who can thoroughly test it in person before purchasing.",
+   "not_ideal_for": "Buyers purchasing remotely without inspection or those expecting like-new battery life out of a 4-year-old device."
+  },
+  "limitations": [
+   "Screen is powered off in all photos, preventing display defect assessment",
+   "Internal components and battery health cannot be verified from images alone"
+  ],
+  "price_analysis": {
+   "verdict": "fair",
+   "estimated_fair_range_npr": [
+    50000,
+    70000
+   ],
+   "reasoning": "None of the scraped listings contained a valid Samsung Galaxy S22 Ultra, as the search results returned entirely unrelated items such as clothing, real estate, and fitness trackers. Because no direct comparables are available from the scraped data, our confidence is low. However, based on general secondary market pricing for the Samsung Galaxy S22 Ultra in Nepal, the fair value typically ranges between NPR 50,000 and NPR 70,000 depending on condition and storage. The asking price of NPR 54,000 falls within this expected range, making it appear fair despite the lack of direct data points in today's scrape.",
+   "confidence": "low"
+  },
+  "market_data": {
+   "listings_used": 0,
+   "market_stats": {
+    "min": 0,
+    "max": 0,
+    "median": 0,
+    "average": 0
+   },
+   "listings": [
+    {
+     "title": "YSL",
+     "price": 3500,
+     "url": "https://hamrobazaar.com/detail/48E944AC-DF29-4A32-96E6-58D053D8F743"
+    },
+    {
+     "title": "Official Chitwan Rhinos Jersey (Fan Edition)",
+     "price": 1500,
+     "url": "https://hamrobazaar.com/detail/BDB599E6-336C-4C5E-AE60-B1F1E3D1DA4C"
+    },
+    {
+     "title": "Brand New Dildo + Pussy 2-in-1",
+     "price": 8000,
+     "url": "https://hamrobazaar.com/detail/51C7D751-5C4D-4746-BA60-490E49F48CBA"
+    },
+    {
+     "title": "Commercial Space on Rent at Mid Baneshwor",
+     "price": 170000,
+     "url": "https://hamrobazaar.com/detail/6A44F6E6-9C18-4A4D-AC5C-6E8FA64939B6"
+    },
+    {
+     "title": "Original Nike Sneakers|Dashain Sale|Under Rs12,999",
+     "price": 12990,
+     "url": "https://hamrobazaar.com/detail/7FD03EC7-8D69-4EC9-A7A4-B56F94130C68"
+    },
+    {
+     "title": "Original Adidas Sneakers|Dashain Sale| Under 12990",
+     "price": 10590,
+     "url": "https://hamrobazaar.com/detail/8F1B79DE-37B4-445D-97A2-841870905B99"
+    },
+    {
+     "title": "Garmin Venus 2 Plus",
+     "price": 35000,
+     "url": "https://hamrobazaar.com/detail/3EFC6498-744F-4792-A37E-58FC3B6E76AF"
+    }
+   ],
+   "excluded": [
+    {
+     "title": "YSL",
+     "reason": "Unrelated product (perfume/fashion item)."
+    },
+    {
+     "title": "Official Chitwan Rhinos Jersey (Fan Edition)",
+     "reason": "Unrelated product (sports apparel)."
+    },
+    {
+     "title": "Brand New Dildo + Pussy 2-in-1",
+     "reason": "Unrelated product (adult novelty)."
+    },
+    {
+     "title": "Commercial Space on Rent at Mid Baneshwor",
+     "reason": "Unrelated product (real estate rental)."
+    },
+    {
+     "title": "Original Nike Sneakers|Dashain Sale|Under Rs12,999",
+     "reason": "Unrelated product (footwear)."
+    },
+    {
+     "title": "Original Adidas Sneakers|Dashain Sale| Under 12990",
+     "reason": "Unrelated product (footwear)."
+    },
+    {
+     "title": "Garmin Venus 2 Plus",
+     "reason": "Unrelated product (smartwatch, not Samsung Galaxy S22 Ultra)."
+    }
+   ]
+  }
+ },
+ "expect": {
+  "ratings": [
+   "consider_with_caution",
+   "buy_worthy"
+  ],
+  "scam_keys": []
+ }
+}

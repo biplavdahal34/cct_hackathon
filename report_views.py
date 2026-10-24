@@ -5,8 +5,19 @@ import time
 import threading
 from urllib.parse import urlparse
 
+import json
+from datetime import datetime, timezone
+
 from functions import (scrape_url, detect_fb_url_type,
                        scrape_fb_marketplace, scrape_fb_post)
+import negotiation
+import prices
+import scoring
+import snapshots
+from knowledge import models as kmodels, protocols, repairs as krepairs, scams
+
+KEY_ACK_MESSAGE = ("Please tick the box confirming this is a free-tier key before sending it. "
+                   "BEAT should never hold a key that can spend money.")
 
 RATING_SCORE = {
     "strong_buy": 90, "buy_worthy": 75, "consider_with_caution": 65,
@@ -210,3 +221,69 @@ def facts_rows(ps: dict, claims: dict, category: str = "phone") -> list:
     ]
     return [{"label": l, "value": v if v not in (None, "") else "unknown", "tone": t}
             for l, v, t in rows]
+
+def enrich(report: dict, listing: dict, snap: dict = None) -> dict:
+    """Add everything BEAT derives without a model and compute the score.
+    Writes report["beat"] and report["scoring"], updates report["verdict"]."""
+    ps = report.get("product_summary") or {}
+    da = report.get("description_analysis") or {}
+    category = report.get("device_category") or "phone"
+    market = report.get("market_data") or {}
+    seller = listing.get("seller") or {}
+    profile = dict((snap or {}).get("profile") or {})
+    if profile.get("ad_count") is None and isinstance(seller.get("ad_count"), int):
+        profile["ad_count"] = seller["ad_count"]
+    if not profile.get("badge") and seller.get("badge"):
+        profile["badge"] = seller["badge"]
+
+    scam_list = scams.detect(listing, report, market, seller=profile)
+    region = kmodels.decode(ps.get("model_number"), ps.get("region_variant"), listing.get("title"),
+                            listing.get("description"), da.get("translated_description"),
+                            json.dumps(listing.get("specifications") or {}, ensure_ascii=False),
+                            " ".join(str(n) for n in ((da.get("extracted_claims") or {}).get("other_notes") or [])))
+    region_warnings = []
+    for f in region:
+        for w in f.get("warnings", []):
+            if w not in region_warnings:
+                region_warnings.append(w)
+    rep_items = krepairs.deductions(category, report, listing)
+    lo, hi = krepairs.total(rep_items)
+    repairs = {"items": rep_items, "total_low": lo, "total_high": hi, "note": krepairs.NOTE, "reviewed": krepairs.REVIEWED}
+    proto = protocols.protocol(category, ps.get("model"), ps.get("title"), listing.get("title"))
+    hist = snapshots.view(snap) if snap else {}
+
+    sc = scoring.compute(report, listing, market=market, scams=scam_list,
+                         model_warnings=region_warnings, history=hist.get("signals") or [])
+    scoring.apply(report, sc)
+
+    key = prices.model_key(ps.get("model") or ps.get("title") or listing.get("title"))
+    guide = {}
+    try:
+        st = prices.stats(key) if key else {}
+        if st and (st.get("n") or 0) >= 3:
+            guide = {"key": key, "label": st["label"], "n": st["n"], "median": st["median"], "p25": st["p25"],
+                     "p75": st["p75"], "trend_pct": st["trend_pct"], "new_median": st["new_median"], "days": st["days"]}
+    except Exception:
+        guide = {}
+    ask = (ps.get("asking_price") or {}).get("amount")
+    new_anchor = market.get("new_price_anchor") or guide.get("new_median")
+    pct_off_new = None
+    if isinstance(ask, (int, float)) and new_anchor and ask < new_anchor:
+        pct_off_new = round((new_anchor - ask) / new_anchor * 100)
+
+    report["beat"] = {
+        "scams": scam_list,
+        "region": region,
+        "repairs": repairs,
+        "protocol": proto,
+        "history": hist,
+        "seller": {"ad_count": profile.get("ad_count"), "badge": profile.get("badge"),
+                   "listings_seen": profile.get("listings_seen"), "names": len(profile.get("names") or [])},
+        "price_guide": guide,
+        "new_price_anchor": new_anchor, "pct_off_new": pct_off_new,
+        "model_key": key,
+        "reviewed": {"models": kmodels.REVIEWED, "protocols": protocols.REVIEWED, "repairs": krepairs.REVIEWED, "scams": scams.REVIEWED},
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+    }
+    report["beat"]["negotiation"] = negotiation.build(report, repairs, hist)
+    return report

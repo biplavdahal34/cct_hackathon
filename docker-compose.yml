@@ -19,9 +19,29 @@ services:
       - FREE_ANALYSES_PER_DAY_GLOBAL=${FREE_ANALYSES_PER_DAY_GLOBAL:-100}
       - FREE_FACEBOOK_PER_DAY_GLOBAL=${FREE_FACEBOOK_PER_DAY_GLOBAL:-15}
       - MAX_ANALYSIS_IMAGES=${MAX_ANALYSIS_IMAGES:-6}
+      # report assistant caps (see chat.py)
+      - CHAT_MESSAGES_PER_LISTING=${CHAT_MESSAGES_PER_LISTING:-10}
+      - CHAT_WINDOW_HOURS=${CHAT_WINDOW_HOURS:-24}
+      - CHAT_MESSAGES_PER_DAY_GLOBAL=${CHAT_MESSAGES_PER_DAY_GLOBAL:-300}
+      - CALIBRATION_MIN_REPORTS=${CALIBRATION_MIN_REPORTS:-20}
+      - PRICE_HISTORY_DAYS=${PRICE_HISTORY_DAYS:-400}
     volumes:
-      - ./data:/app/instance   
-                               
+      - ./data:/app/instance
+    restart: unless-stopped
+
+  # daily price crawl for the public price guide; shares the database volume
+  crawler:
+    build: .
+    command: sh -c "while true; do flask --app flask_app crawl-prices; sleep ${CRAWL_INTERVAL_SECONDS:-86400}; done"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - OXYLABS_USERNAME=${OXYLABS_USERNAME}
+      - OXYLABS_PASSWORD=${OXYLABS_PASSWORD}
+      - PRICE_HISTORY_DAYS=${PRICE_HISTORY_DAYS:-400}
+    volumes:
+      - ./data:/app/instance
+    depends_on:
+      - web
     restart: unless-stopped
 
   nginx:

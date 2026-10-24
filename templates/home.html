@@ -12,8 +12,9 @@
     </section>
   </div></div>
 
-  <form class="urlform" method="post" action="{{ url_for('analyze_url') }}" id="analyzeForm">
+  <form class="urlform" method="post" action="{{ url_for('analyze_url') }}" id="analyzeForm" data-key-ack>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="key_ack" value="0" data-key-ack-field>
     <div class="urlbar">
       <label class="sr" for="url">Listing link</label>
       <input class="input" id="url" name="url" type="url" required placeholder="https://hamrobazaar.com/detail/…" autocomplete="off">
@@ -31,8 +32,9 @@
 
       {% if current_user.is_authenticated %}
       <div class="advpanel" id="advPanel" hidden>
-        <p class="advnote">Use your own free API keys for this check. They're used once and not saved —
+        <p class="advnote">Use your own API keys for this check. They're used once and not saved —
           <a href="{{ url_for('account') }}#keys">save them on your account</a> to skip this every time.</p>
+        <p class="advwarn"><b>Free-tier keys only.</b> Make a key with no card or billing attached, just for BEAT. Keys are verified and sent over HTTPS, but no website can promise a key is perfectly safe, so don't trust this site, or any site, with a key that can spend money.</p>
         <div class="advgrid">
           <div class="field">
             <label for="gemini_key">Gemini key</label>
@@ -45,6 +47,7 @@
                    placeholder="{{ 'Saved ····' ~ keys.apify.last4 ~ ' — paste to override' if keys and keys.apify.saved else 'Optional' }}">
           </div>
         </div>
+        <noscript><label class="ack" style="margin-top:12px"><input type="checkbox" name="key_ack" value="1"> <span>I confirm these are free-tier keys with no billing attached.</span></label></noscript>
       </div>
       {% endif %}
     </div></div>

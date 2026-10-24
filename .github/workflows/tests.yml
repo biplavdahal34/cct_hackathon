@@ -1,0 +1,26 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "sqlite://"
+      SESSION_COOKIE_SECURE: "0"
+      SECRET_KEY: "ci-only-not-secret"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirement.txt
+      - name: Unit tests (no network, Gemini and scrapers are faked)
+        run: python -m unittest -v
+      - name: Golden listings through the Python layer
+        run: |
+          export KEY_ENCRYPTION_KEY=$(flask --app flask_app gen-encryption-key)
+          flask --app flask_app eval-reports

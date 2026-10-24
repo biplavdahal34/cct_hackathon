@@ -34,3 +34,32 @@
 {% set src = (images or [])|first %}
 <span class="thumb {{ cls }}">{% if src and src.startswith('https://') %}<img src="/img?u={{ src|urlencode }}" alt="" loading="lazy">{% endif %}</span>
 {%- endmacro %}
+
+{# The confirmation shown before any API key leaves the browser. Forms with data-key-ack open it;
+   the confirm button stays disabled until the box is ticked. The server also requires key_ack=1. #}
+{% macro key_ack_dialog() -%}
+<dialog id="keyAck" class="modal" aria-labelledby="keyAckTitle">
+  <form method="dialog" class="modal-in">
+    <h3 id="keyAckTitle">Before you send this key</h3>
+    <p>BEAT asks for <b>free-tier keys only</b>. A key attached to a card or a paid plan can be charged if it ever leaks, and no site, this one included, can promise that will never happen. The key is verified, encrypted and never shown again, but you should still treat it as something you can afford to lose.</p>
+    <ul class="dots">
+      <li>Make a separate key just for BEAT, on a free plan with no billing attached.</li>
+      <li>Set a daily quota on it at the provider.</li>
+      <li>Remove it here, and revoke it there, the moment you stop using BEAT.</li>
+    </ul>
+    <label class="ack"><input type="checkbox" id="keyAckBox"> <span>I confirm this is a <b>free-tier key with no billing</b>, and I understand BEAT cannot guarantee its safety.</span></label>
+    <div class="modal-acts">
+      <button class="btn quiet" type="button" data-ack-cancel>Cancel</button>
+      <button class="btn primary" type="button" id="keyAckGo" disabled>Send the key</button>
+    </div>
+  </form>
+</dialog>
+{%- endmacro %}
+
+{# A line of copy-to-clipboard text (seller message, negotiation message). #}
+{% macro copyblock(text, label='Copy') -%}
+<div class="copyblock">
+  <pre class="copytext">{{ text }}</pre>
+  <button class="btn sm" type="button" data-copy>{{ label }}</button>
+</div>
+{%- endmacro %}

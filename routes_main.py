@@ -7,20 +7,30 @@ from urllib.parse import urlparse
 
 import requests
 from flask import (render_template, request, redirect, url_for, Response, abort,
-                   flash)
+                   flash, jsonify)
+from flask_wtf.csrf import validate_csrf
 from flask_login import login_required, current_user
 from markupsafe import Markup, escape
 
 import api_keys
+import chat
 import crypto
+import followup as followup_mod
 import limits
+import negotiation
+import outcomes
+import prices
+import scoring
+import snapshots
+import translate
 from extensions import db
-from functions import analyze, market_analysis
-from models import Analysis
+from functions import analyze, market_analysis, download_images
+from knowledge import models as kmodels, protocols, repairs as krepairs, scams, nepal
+from models import Analysis, Followup
 from security import limiter, client_ip, csrf_ok, is_https, production
 from report_views import (normalize_listing, normalize_report, scrape_any,
                           listing_source, canonical_url, cache_get, cache_put,
-                          facts_rows, price_vm)
+                          facts_rows, price_vm, enrich, KEY_ACK_MESSAGE)
 
 # A report for the same listing younger than this is shown instead of re-running
 # the pipeline (no API spend, not metered). "Check again" on the report bypasses it.
@@ -111,6 +121,9 @@ def register_routes(app):
         for provider, field in (("gemini", "gemini_key"), ("apify", "apify_key")):
             raw = (request.form.get(field) or "").strip()
             if raw:
+                if request.form.get("key_ack") != "1":
+                    flash(KEY_ACK_MESSAGE, "error")
+                    return redirect(url_for("home"))
                 if production() and not is_https():
                     # the key already crossed the wire unencrypted — don't use it, say so
                     flash("API keys can only be sent over HTTPS. That key may have been exposed on "
@@ -149,8 +162,9 @@ def register_routes(app):
                 return redirect(url_for("home"))
             cache_put(url, listing)
 
+        images = download_images(listing.get("images") or listing.get("product_img") or [])
         try:
-            report = normalize_report(analyze(listing, gemini_key=keys.get("gemini")))
+            report = normalize_report(analyze(listing, gemini_key=keys.get("gemini"), images=images))
         except ValueError as e:
             flash(str(e), "error")
             return redirect(url_for("home"))
@@ -174,6 +188,8 @@ def register_routes(app):
                 "market_stats": market.get("market_stats") or {},
                 "listings": market.get("listings") or [],
                 "excluded": market.get("excluded_listings") or [],
+                "new_price_anchor": market.get("new_price_anchor"),
+                "new_listings_used": market.get("new_listings_used") or 0,
             }
         except ValueError as e:
             report["price_analysis"] = {"verdict": None, "estimated_fair_range_npr": None,
@@ -187,11 +203,26 @@ def register_routes(app):
                                         "confidence": "low"}
             report["market_data"] = None
 
+        # everything BEAT derives in Python: snapshot + seller history, scam patterns,
+        # model-number facts, repair estimates, the score itself, price guide, offer
+        try:
+            snap = snapshots.inspect(listing, url_key, images=images)
+        except Exception:
+            app.logger.exception("Snapshot failed for %s", url)
+            snap = None
+        enrich(report, listing, snap)
+        try:
+            prices.contribute(listing, report)
+        except Exception:
+            app.logger.exception("Price contribution failed for %s", url)
+            db.session.rollback()
+
         # persist to history (redirect-after-post: refresh-safe, listed in sidebar)
         a = Analysis(
             user_id=current_user.id,
             url=url,
             url_key=url_key,
+            seller_key=snap["snapshot"].seller_key if snap else None,
             title=(ps.get("title") or listing.get("title") or "Untitled")[:300],
             source=listing.get("source") or "unknown",
             device_category=report.get("device_category") or "unknown",
@@ -205,6 +236,9 @@ def register_routes(app):
         )
         db.session.add(a)
         db.session.commit()
+        if snap:
+            snap["snapshot"].analysis_id = a.id
+            db.session.commit()
 
         used = [p for p in ("gemini", "apify")                       # saved keys actually used
                 if p in saved and p not in typed and (p == "gemini" or source == "facebook")]
@@ -213,21 +247,168 @@ def register_routes(app):
 
         return redirect(url_for("report", analysis_id=a.id))
 
-    @app.get("/report/<int:analysis_id>")
-    @login_required
-    def report(analysis_id):
+    def _own_analysis(analysis_id):
         a = Analysis.query.get_or_404(analysis_id)
         if a.user_id != current_user.id:
             abort(404)
-        A = a.report
+        return a
+
+    @app.get("/report/<int:analysis_id>")
+    @login_required
+    def report(analysis_id):
+        a = _own_analysis(analysis_id)
+        lang = "ne" if request.args.get("lang") == "ne" and a.report_ne_json else "en"
+        A = a.report_ne if lang == "ne" else a.report
         listing = a.listing
         ps = A.get("product_summary") or {}
         claims = (A.get("description_analysis") or {}).get("extracted_claims") or {}
+        beat = A.get("beat") or {}
+        fups = Followup.query.filter_by(analysis_id=a.id).order_by(Followup.id.asc()).all()
+        own_gemini = "gemini" in api_keys.status(current_user.id) and api_keys.status(current_user.id)["gemini"]["saved"]
         return render_template(
-            "report.html", a=a, A=A, listing=listing,
+            "report.html", a=a, A=A, listing=listing, lang=lang, beat=beat,
             facts=facts_rows(ps, claims, A.get("device_category") or "phone"),
             price=price_vm(ps, A.get("price_analysis") or {}),
+            followups=[f.result for f in fups],
+            seller_message=followup_mod.seller_message(a.report, listing),
+            proof_asks=protocols.seller_proof_requests(a.report.get("device_category") or "phone",
+                                                       (a.report.get("product_summary") or {}).get("model"), a.title),
+            outcome=outcomes.for_analysis(a.id), outcome_labels=outcomes.LABELS,
+            chat_history=chat.history(a.id, current_user.id),
+            chat_remaining=chat.remaining(current_user.id, a.id), chat_cap=chat.CAP_PER_LISTING,
+            own_gemini=own_gemini, has_ne=bool(a.report_ne_json), nta=nepal,
         )
+
+    @app.post("/report/<int:analysis_id>/chat")
+    @login_required
+    def report_chat(analysis_id):
+        """JSON: {"q": "..."} → {"answer", "remaining", "metered", "in_scope"}; 429 when capped."""
+        a = _own_analysis(analysis_id)
+        try:
+            validate_csrf(request.headers.get("X-CSRFToken") or (request.get_json(silent=True) or {}).get("csrf_token", ""))
+        except Exception:
+            return jsonify({"error": "Security token missing — reload the page."}), 400
+        if not limiter.hit(f"chat:{client_ip()}", limit=30, window=60):
+            return jsonify({"error": "Slow down a little."}), 429
+        body = request.get_json(silent=True) or {}
+        keys = api_keys.load_keys(current_user.id)
+        try:
+            out = chat.ask(a, current_user.id, body.get("q", ""), gemini_key=keys.get("gemini"))
+        except chat.ChatRejected as e:
+            return jsonify({"error": str(e)}), 400
+        except chat.ChatCapped as e:
+            return jsonify({"error": str(e), "capped": True, "remaining": 0,
+                            "keys_url": url_for("account") + "#keys"}), 429
+        if "gemini" in keys:
+            api_keys.mark_used(current_user.id, ["gemini"], a.id)
+        return jsonify(out)
+
+    @app.post("/report/<int:analysis_id>/followup")
+    @login_required
+    def report_followup(analysis_id):
+        """Proof round: seller screenshots checked against the claims, then re-scored."""
+        a = _own_analysis(analysis_id)
+        back = redirect(url_for("report", analysis_id=a.id) + "#checklist")
+        if not csrf_ok():
+            flash("Security token missing — refresh the page and try again.", "error")
+            return back
+        if Followup.query.filter_by(analysis_id=a.id).count() >= 5:
+            flash("This report already has five proof checks. Run a fresh check if the listing changed.", "error")
+            return back
+        keys = api_keys.load_keys(current_user.id)
+        blocked = limits.consume(current_user.id, client_ip(), "followup", "gemini" not in keys, False)
+        if blocked:
+            flash(Markup(f'{escape(blocked)} <a href="{url_for("account")}#keys">Manage keys</a>'), "error")
+            return back
+        try:
+            images = followup_mod.validate_files(request.files.getlist("shots"))
+            result = followup_mod.check(a.report, a.listing, images, gemini_key=keys.get("gemini"))
+        except followup_mod.FollowupRejected as e:
+            flash(str(e), "error")
+            return back
+        except ValueError as e:
+            flash(str(e), "error")
+            return back
+        except Exception:
+            app.logger.exception("Proof check failed for analysis %s", a.id)
+            flash("The proof check failed. Please try again.", "error")
+            return back
+        followup_mod.save(a.id, current_user.id, result)
+        if "gemini" in keys:
+            api_keys.mark_used(current_user.id, ["gemini"], a.id)
+        # re-score with every proof round so far
+        results = [f.result for f in Followup.query.filter_by(analysis_id=a.id).all()]
+        R = a.report
+        beat = R.get("beat") or {}
+        sc = scoring.compute(R, a.listing, market=R.get("market_data"), scams=beat.get("scams") or [],
+                             model_warnings=[w for f in (beat.get("region") or []) for w in f.get("warnings", [])],
+                             history=(beat.get("history") or {}).get("signals", []) + followup_mod.signals(results))
+        scoring.apply(R, sc)
+        a.report_json = json.dumps(R, ensure_ascii=False)
+        a.report_ne_json = None                      # translation is of the old report
+        a.score, a.rating, a.badge_color = sc["score"], sc["rating"], sc["badge_color"]
+        db.session.commit()
+        n = result.get("contradicted", 0)
+        flash("Proof checked: " + (f"{n} claim{'s' if n != 1 else ''} contradicted. The score was updated." if n
+                                   else "nothing contradicted. The score was updated."), "ok" if not n else "error")
+        return back
+
+    @app.post("/report/<int:analysis_id>/outcome")
+    @login_required
+    def report_outcome(analysis_id):
+        a = _own_analysis(analysis_id)
+        back = redirect(url_for("report", analysis_id=a.id) + "#outcome")
+        if not csrf_ok():
+            flash("Security token missing — refresh the page and try again.", "error")
+            return back
+        try:
+            outcomes.record(a, current_user.id, request.form.get("outcome", ""), request.form.get("note", ""))
+        except ValueError as e:
+            flash(str(e), "error")
+            return back
+        flash("Thanks. Your outcome helps BEAT measure how often its verdicts hold up.", "ok")
+        return back
+
+    @app.post("/report/<int:analysis_id>/translate")
+    @login_required
+    def report_translate(analysis_id):
+        a = _own_analysis(analysis_id)
+        if a.report_ne_json:
+            return redirect(url_for("report", analysis_id=a.id, lang="ne"))
+        if not csrf_ok():
+            flash("Security token missing — refresh the page and try again.", "error")
+            return redirect(url_for("report", analysis_id=a.id))
+        keys = api_keys.load_keys(current_user.id)
+        blocked = limits.consume(current_user.id, client_ip(), "translate", "gemini" not in keys, False)
+        if blocked:
+            flash(Markup(f'{escape(blocked)} <a href="{url_for("account")}#keys">Manage keys</a>'), "error")
+            return redirect(url_for("report", analysis_id=a.id))
+        try:
+            a.report_ne_json = json.dumps(translate.translate_report(a.report, gemini_key=keys.get("gemini")), ensure_ascii=False)
+            db.session.commit()
+        except Exception:
+            app.logger.exception("Translation failed for analysis %s", a.id)
+            flash("Could not translate the report right now. Please try again.", "error")
+            return redirect(url_for("report", analysis_id=a.id))
+        if "gemini" in keys:
+            api_keys.mark_used(current_user.id, ["gemini"], a.id)
+        return redirect(url_for("report", analysis_id=a.id, lang="ne"))
+
+    @app.get("/prices")
+    def price_guide():
+        return render_template("prices.html", models=prices.guide_index())
+
+    @app.get("/prices/<key>")
+    def price_model(key):
+        key = key.lower()[:80]
+        st = prices.stats(key)
+        if not st["n"] and not st["n_new"]:
+            abort(404)
+        return render_template("price_model.html", st=st, series=prices.series(key), rows=prices.listings(key))
+
+    @app.get("/accuracy")
+    def accuracy():
+        return render_template("accuracy.html", cal=outcomes.calibration())
 
     @app.get("/analyses")
     @login_required
@@ -274,6 +455,9 @@ def register_routes(app):
         if request.form.get("action") == "remove":
             if api_keys.remove_key(current_user.id, provider, client_ip()):
                 flash(f"{label} key removed.", "ok")
+            return back
+        if request.form.get("key_ack") != "1":
+            flash(KEY_ACK_MESSAGE, "error")
             return back
         try:
             api_keys.save_key(current_user.id, provider, request.form.get("api_key"), client_ip())

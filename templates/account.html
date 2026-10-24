@@ -21,10 +21,11 @@
   {# ── API keys ── #}
   <section id="keys" style="margin-top:28px">
     <h2 class="title" style="font-size:24px; margin-bottom:6px">Your API keys</h2>
-    <p class="muted" style="font-size:14px; margin-bottom:14px">
+    <p class="muted" style="font-size:14px; margin-bottom:10px">
       BEAT runs on free API plans shared by everyone, so there's a limit on how many listings each person can check per hour.
-      If you add your own free keys, your checks use your own quota instead and the limit no longer applies to you.
+      If you add your own free keys, your checks, questions and translations use your own quota instead and the limits no longer apply to you.
     </p>
+    <div class="flash" style="margin-bottom:14px"><span><b>Free-tier keys only, and don't trust us fully.</b> Make a separate key with no card or billing attached, set a daily quota on it at the provider, and use that. BEAT verifies keys, encrypts them at rest and never shows them again, but no website can promise a key is perfectly safe. Only ever give this site, or any site, a key you can afford to lose.</span></div>
 
     {% set own_all = keys.gemini.saved and keys.apify.saved %}
     <div class="card quota">
@@ -56,8 +57,9 @@
       {% endif %}
 
       {% if byok_enabled %}
-      <form class="keyform" method="post" action="{{ url_for('manage_api_key', provider=pid) }}" autocomplete="off">
+      <form class="keyform" method="post" action="{{ url_for('manage_api_key', provider=pid) }}" autocomplete="off" data-key-ack>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="key_ack" value="0" data-key-ack-field>
         <div class="field">
           <label for="key-{{ pid }}">{{ 'New key (replaces the saved one)' if k.saved else 'Key' }}</label>
           <input class="input" id="key-{{ pid }}" name="api_key" type="password" autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-secret placeholder="Paste your {{ k.label }} key">
@@ -66,6 +68,7 @@
           <label for="pw-{{ pid }}">Your BEAT password</label>
           <input class="input" id="pw-{{ pid }}" name="password" type="password" autocomplete="current-password" placeholder="Required to change keys">
         </div>
+        <noscript><label class="ack"><input type="checkbox" name="key_ack" value="1"> <span>I confirm this is a free-tier key with no billing attached.</span></label></noscript>
         <div class="keyacts">
           <button class="btn primary" type="submit" name="action" value="save">{{ 'Replace key' if k.saved else 'Verify and save' }}</button>
           {% if k.saved %}<button class="btn quiet" type="submit" name="action" value="remove" formnovalidate>Remove key</button>{% endif %}
@@ -82,6 +85,7 @@
         <li>Keys are used only for listings you check yourself. Nothing else on BEAT touches them.</li>
         <li>Your photos and listing text go to Google under your own key, so Google's terms for your account apply.</li>
         <li>Create a key just for BEAT. Apify can issue a token limited to running actors; for Gemini, a free AI Studio key with a daily quota set in Google Cloud. Remove it here any time.</li>
+        <li>Your key is also used for the report assistant, proof checks and Nepali translations on your own reports, and nowhere else.</li>
       </ul>
     </details>
   </section>

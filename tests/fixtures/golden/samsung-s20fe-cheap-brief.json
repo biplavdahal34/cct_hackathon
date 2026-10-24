@@ -1,0 +1,287 @@
+{
+ "name": "samsung-s20fe-cheap-brief",
+ "note": "Real listing analysed on 2026-10-15; seller details removed. The report is the model's output; the score is recomputed by the Python layer.",
+ "listing": {
+  "title": "Samsung galaxy s20fe 5g",
+  "condition": "Used",
+  "product_img": [
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/3719c48e-3e3e-4b2f-bd9d-26eaf553f5c5.webp",
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/d29c7c64-68b2-44c8-ba2e-53a95c421e91.webp",
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/a8a1631b-e7c0-4264-8709-4ed363b02545.webp",
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/38dbb25a-1f86-4d97-b0f6-9caa2dd88f7f.webp"
+  ],
+  "price": {
+   "amount": 15000,
+   "currency": "NPR",
+   "type": "Fixed price"
+  },
+  "address": "Su******du",
+  "delivery": {
+   "available": false,
+   "details": "Seller will not deliver the product to you"
+  },
+  "seller": {
+   "name": "Seller",
+   "phone": null,
+   "profile_url": null,
+   "profile_picture": null
+  },
+  "description": "still very good condition",
+  "specifications": {
+   "RAM": "6",
+   "Internal Storage": "128",
+   "SIM Slot": "1"
+  },
+  "source": "hamrobazaar",
+  "images": [
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/3719c48e-3e3e-4b2f-bd9d-26eaf553f5c5.webp",
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/d29c7c64-68b2-44c8-ba2e-53a95c421e91.webp",
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/a8a1631b-e7c0-4264-8709-4ed363b02545.webp",
+   "https://blr1.digitaloceanspaces.com/hamrobazaar/User/Posts/2026/10/15/38dbb25a-1f86-4d97-b0f6-9caa2dd88f7f.webp"
+  ],
+  "url": "https://hamrobazaar.com/detail/x/y/B77FB0D2-62A3-4D48-9C95-437F68F59F3C"
+ },
+ "report": {
+  "device_category": "phone",
+  "product_summary": {
+   "title": "Samsung Galaxy S20 FE 5G",
+   "model": "Samsung Galaxy S20 FE 5G (6GB RAM, 128GB Storage)",
+   "storage": "128 GB",
+   "ram": "6 GB",
+   "stated_condition": "Used",
+   "assessed_condition": "good - minor cosmetic wear visible on exterior",
+   "matches_stated_condition": "yes",
+   "asking_price": {
+    "amount": 15000,
+    "currency": "NPR",
+    "negotiable": true
+   },
+   "location": "Kathmandu / Lalitpur (Masked as Su******du)",
+   "delivery_available": false
+  },
+  "description_analysis": {
+   "original_description": "still very good condition",
+   "translated_description": "still very good condition",
+   "extracted_claims": {
+    "battery_health_percent": null,
+    "box_included": null,
+    "accessories": [],
+    "reason_for_selling": null,
+    "other_notes": [
+     "stated condition is still very good"
+    ]
+   },
+   "category_specific_claims": {
+    "screen_originality": "not_mentioned",
+    "biometric_unlock": "not_mentioned",
+    "account_lock_status": "not_mentioned",
+    "network_lock_status": "not_mentioned"
+   },
+   "claim_credibility": "vague and minimal description, offering very little detail about the phone's history, repair status, or battery health"
+  },
+  "image_analysis": {
+   "images_reviewed": 4,
+   "per_image": [
+    {
+     "image_index": 1,
+     "summary": "Front screen of the phone resting on a patterned blanket, display turned off",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "wear",
+       "location": "screen surface / bezel",
+       "severity": "minor",
+       "confidence": "low",
+       "notes": "No major cracks visible on the glass surface, but screen is turned off preventing dead pixel or burn-in inspection."
+      }
+     ]
+    },
+    {
+     "image_index": 2,
+     "summary": "Screenshot of Samsung One UI Storage settings showing 128GB total storage and 58% used",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "artifact",
+       "location": "screenshot interface",
+       "severity": "none",
+       "confidence": "high",
+       "notes": "Confirms internal storage capacity matches the 128GB specification."
+      }
+     ]
+    },
+    {
+     "image_index": 3,
+     "summary": "Rear panel view of the lavender/purple Samsung Galaxy S20 FE 5G showing triple camera module",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "scratch",
+       "location": "back glass / frame",
+       "severity": "minor",
+       "confidence": "medium",
+       "notes": "Standard light scuffs typical of a used plastic/glasstic back panel without a case."
+      }
+     ]
+    },
+    {
+     "image_index": 4,
+     "summary": "Screenshot of RAM Plus settings showing 6GB virtual memory allocation option",
+     "photo_authenticity": "real_device_photo",
+     "findings": [
+      {
+       "type": "artifact",
+       "location": "screenshot interface",
+       "severity": "none",
+       "confidence": "high",
+       "notes": "Confirms device operating system interface and software responsiveness."
+      }
+     ]
+    }
+   ],
+   "not_verifiable_from_images": [
+    "Battery health and actual capacity degradation",
+    "Functionality of touch screen and display panel (no photo with screen turned on)",
+    "Internal repair or water damage history",
+    "Biometric sensor functionality (fingerprint scanner)",
+    "Network/SIM lock and Google FRP account status"
+   ]
+  },
+  "red_flags": [
+   "Extremely brief description with zero details regarding repair history, battery condition, or inclusion of charger/box",
+   "No photos showing the display powered on to check for burn-in, dead pixels, or touch responsiveness"
+  ],
+  "green_flags": [
+   "Fair asking price (15,000 NPR) for a Snapdragon-powered 5G device if fully functional",
+   "Real screenshots provided showing actual storage and software configuration"
+  ],
+  "buyer_guidance": {
+   "questions_to_ask_seller": [
+    "Has the screen, battery, or back panel ever been replaced or repaired?",
+    "Is the phone currently logged into any Google or Samsung accounts that need removal?",
+    "Does the purchase include the original fast charger and box?",
+    "Are there any display issues such as burn-in, ghost touch, or dead pixels?"
+   ],
+   "in_person_checks": [
+    "Test biometric unlock (in-display fingerprint scanner and face recognition)",
+    "Dial *#0*# to open the Samsung diagnostic test menu and thoroughly check touch sensitivity, colors, and cameras",
+    "Inspect charging port for lint and verify fast charging functionality",
+    "Check IMEI status and ensure the device is not network-locked or blacklisted"
+   ],
+   "negotiation_leverage": [
+    "The seller's description lacks any mention of accessories or charger, which can be used to negotiate a lower price if only the bare phone is provided."
+   ],
+   "walk_away_if": [
+    "The seller refuses to meet in a safe public place for testing",
+    "The phone has a Google FRP lock or is reported lost/stolen",
+    "Significant screen burn-in or unresponsive touch areas are discovered during testing"
+   ]
+  },
+  "verdict": {
+   "rating": "consider_with_caution",
+   "score_0_100": 65,
+   "badge_color": "yellow",
+   "one_liner": "Decent price for a capable 5G phone, but requires thorough in-person verification due to a sparse description and unpowered display photos.",
+   "reasoning": "The Samsung Galaxy S20 FE 5G offers strong performance and value at 15,000 NPR if everything works correctly. However, the listing description is overly brief and lacks critical information about battery health, repair history, and accessories. Furthermore, the lack of photos with the screen turned on makes it impossible to rule out screen burn-in or dead pixels prior to meeting. A careful in-person inspection using Samsung's diagnostic menu is strictly necessary before purchasing.",
+   "ideal_for": "Budget-conscious buyers looking for capable 5G performance who are comfortable thoroughly testing a used phone in person.",
+   "not_ideal_for": "Buyers purchasing remotely or those wanting a guaranteed pristine device with a warranty and original accessories."
+  },
+  "limitations": [
+   "No photos provided with the screen turned on to evaluate display panel quality or burn-in",
+   "Seller description provides no details on battery health or repair history",
+   "Exact location is masked in the listing details"
+  ],
+  "price_analysis": {
+   "verdict": "suspiciously_cheap",
+   "estimated_fair_range_npr": [
+    22000,
+    32000
+   ],
+   "reasoning": "None of the scraped listings matched the requested Samsung Galaxy S20 FE 5G device, as all provided results were entirely unrelated items such as clothing, real estate, shoes, and smartwatches. Consequently, zero usable comparable listings were found for this model in the current dataset. Based on general market knowledge for this specific device in Nepal, a fair price range is typically between 22,000 and 32,000 NPR depending on condition. The asking price of 15,000 NPR is drastically below standard market value, which makes it suspiciously cheap and potentially indicative of a hidden major defect, clone, or scam.",
+   "confidence": "low"
+  },
+  "market_data": {
+   "listings_used": 0,
+   "market_stats": {
+    "min": 0,
+    "max": 0,
+    "median": 0,
+    "average": 0
+   },
+   "listings": [
+    {
+     "title": "YSL",
+     "price": 3500,
+     "url": "https://hamrobazaar.com/detail/48E944AC-DF29-4A32-96E6-58D053D8F743"
+    },
+    {
+     "title": "Official Chitwan Rhinos Jersey (Fan Edition)",
+     "price": 1500,
+     "url": "https://hamrobazaar.com/detail/BDB599E6-336C-4C5E-AE60-B1F1E3D1DA4C"
+    },
+    {
+     "title": "Brand New Dildo + Pussy 2-in-1",
+     "price": 8000,
+     "url": "https://hamrobazaar.com/detail/51C7D751-5C4D-4746-BA60-490E49F48CBA"
+    },
+    {
+     "title": "Commercial Space on Rent at Mid Baneshwor",
+     "price": 170000,
+     "url": "https://hamrobazaar.com/detail/6A44F6E6-9C18-4A4D-AC5C-6E8FA64939B6"
+    },
+    {
+     "title": "Original Nike Sneakers|Dashain Sale|Under Rs12,999",
+     "price": 12990,
+     "url": "https://hamrobazaar.com/detail/7FD03EC7-8D69-4EC9-A7A4-B56F94130C68"
+    },
+    {
+     "title": "Original Adidas Sneakers|Dashain Sale| Under 12990",
+     "price": 10590,
+     "url": "https://hamrobazaar.com/detail/8F1B79DE-37B4-445D-97A2-841870905B99"
+    },
+    {
+     "title": "Garmin Venus 2 Plus",
+     "price": 35000,
+     "url": "https://hamrobazaar.com/detail/3EFC6498-744F-4792-A37E-58FC3B6E76AF"
+    }
+   ],
+   "excluded": [
+    {
+     "title": "YSL",
+     "reason": "Not the requested smartphone model."
+    },
+    {
+     "title": "Official Chitwan Rhinos Jersey (Fan Edition)",
+     "reason": "Apparel, not a smartphone."
+    },
+    {
+     "title": "Brand New Dildo + Pussy 2-in-1",
+     "reason": "Irrelevant adult product."
+    },
+    {
+     "title": "Commercial Space on Rent at Mid Baneshwor",
+     "reason": "Real estate listing."
+    },
+    {
+     "title": "Original Nike Sneakers|Dashain Sale|Under Rs12,999",
+     "reason": "Footwear, not a smartphone."
+    },
+    {
+     "title": "Original Adidas Sneakers|Dashain Sale| Under 12990",
+     "reason": "Footwear, not a smartphone."
+    },
+    {
+     "title": "Garmin Venus 2 Plus",
+     "reason": "Smartwatch, not a Samsung Galaxy S20 FE 5G."
+    }
+   ]
+  }
+ },
+ "expect": {
+  "ratings": [
+   "consider_with_caution",
+   "caution"
+  ],
+  "scam_keys": []
+ }
+}

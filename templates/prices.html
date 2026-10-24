@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Used prices in Nepal — BEAT{% endblock %}
+{% block content %}
+<div class="section-head" style="margin-bottom:6px">
+  <h2 class="title" style="font-size:30px">What used devices sell for</h2>
+</div>
+<p class="muted" style="font-size:14.5px; max-width:64ch; margin-bottom:18px">Asking prices on Hamrobazaar, collected every day and grouped by model. Each listing counts once, however long it stays up. Brand-new listings are shown separately so a used price can be read as a discount.</p>
+
+{% if models %}
+<div class="plist">
+  {% for s in models %}
+  <a class="prow" href="{{ url_for('price_model', key=s.key) }}">
+    <span class="pl">{{ s.label }}</span>
+    <span class="pn">{{ s.n }} listing{{ 's' if s.n != 1 }}</span>
+    <span class="pt">{% if s.trend_pct is not none %}<span class="{{ 'trend-down' if s.trend_pct < 0 else 'trend-up' }}">{{ '+' if s.trend_pct > 0 }}{{ s.trend_pct }}% this month</span>{% else %}&nbsp;{% endif %}</span>
+    <span class="pm">NPR {{ s.median|fmt }}</span>
+  </a>
+  {% endfor %}
+</div>
+<p class="none" style="margin-top:14px">Median asking price of used and like-new units in the last 90 days. Not a valuation: a listing with a cracked screen and one with a bill are averaged together here. The report for a specific listing does the adjusting.</p>
+{% else %}
+<div class="empty"><b>No price data yet</b>Prices appear here once the daily crawl has run, or after a few listings have been checked.<br><a class="btn primary" href="{{ url_for('home') }}">Check a listing</a></div>
+{% endif %}
+{% endblock %}

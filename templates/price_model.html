@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ st.label }} used price in Nepal — BEAT{% endblock %}
+{% block content %}
+<div class="crumbs" style="display:flex;gap:8px;font-size:13px;color:var(--muted);margin-bottom:10px"><a href="{{ url_for('price_guide') }}" style="color:var(--muted)">Prices</a><span>/</span><span>{{ st.label }}</span></div>
+<h2 class="title" style="font-size:30px">{{ st.label }}, used</h2>
+<p class="muted" style="font-size:14.5px; margin-top:6px">From {{ st.n }} used or like-new listing{{ 's' if st.n != 1 }} on Hamrobazaar in the last {{ st.days }} days{% if st.n_new %}, plus {{ st.n_new }} brand-new{% endif %}.</p>
+
+<div class="pstats">
+  <div class="stat"><small>Median asking</small><b class="num">{% if st.median %}NPR {{ st.median|fmt }}{% else %}—{% endif %}</b></div>
+  <div class="stat"><small>Middle half</small><b class="num">{% if st.p25 %}{{ st.p25|fmt }}–{{ st.p75|fmt }}{% else %}—{% endif %}</b></div>
+  <div class="stat"><small>Brand new on the site</small><b class="num">{% if st.new_median %}NPR {{ st.new_median|fmt }}{% else %}—{% endif %}</b></div>
+  <div class="stat"><small>Last 30 days</small><b class="{{ 'trend-down' if st.trend_pct is not none and st.trend_pct < 0 else ('trend-up' if st.trend_pct is not none else '') }}">{% if st.trend_pct is not none %}{{ '+' if st.trend_pct > 0 }}{{ st.trend_pct }}%{% else %}not enough data{% endif %}</b></div>
+</div>
+
+{% if series and series|length >= 2 %}
+{% set vals = series|map(attribute='median')|list %}
+{% set vmin = vals|min %}{% set vmax = vals|max %}
+{% set span = (vmax - vmin) if vmax > vmin else 1 %}
+{% set n = series|length %}
+<div class="card">
+  <h3>Weekly median</h3>
+  <svg class="chart" viewBox="0 0 600 180" role="img" aria-label="Weekly median asking price">
+    <line class="ax" x1="40" y1="150" x2="590" y2="150"/>
+    <text x="4" y="24">{{ vmax|fmt }}</text><text x="4" y="150">{{ vmin|fmt }}</text>
+    <polyline class="ln" points="{% for p in series %}{{ (40 + (loop.index0 / (n - 1)) * 550)|round(1) }},{{ (150 - ((p.median - vmin) / span) * 126)|round(1) }} {% endfor %}"/>
+    {% for p in series %}<circle class="dot" r="3" cx="{{ (40 + (loop.index0 / (n - 1)) * 550)|round(1) }}" cy="{{ (150 - ((p.median - vmin) / span) * 126)|round(1) }}"><title>Week of {{ p.week_start }}: NPR {{ p.median|fmt }} ({{ p.n }} listings)</title></circle>{% endfor %}
+    <text x="40" y="172">{{ series[0].week_start }}</text><text x="520" y="172">{{ series[-1].week_start }}</text>
+  </svg>
+</div>
+{% endif %}
+
+{% if rows %}
+<div class="card" style="margin-top:14px">
+  <h3>Listings in the last 30 days <span class="count" style="margin-left:auto">{{ rows|length }}</span></h3>
+  {% for r in rows %}
+  <a class="comp" href="{{ r.source_url }}" target="_blank" rel="noopener"><span class="ct">{{ r.title }}</span>{% if r.condition and r.condition != 'unknown' %}<span class="pill plain cc">{{ r.condition|cond }}</span>{% endif %}<span class="cp">NPR {{ r.price|fmt }}</span></a>
+  {% endfor %}
+</div>
+{% endif %}
+<p class="none" style="margin-top:14px">Asking prices, not sale prices. Sellers in Nepal expect to negotiate, so the typical sale is somewhat below these numbers.</p>
+{% endblock %}
